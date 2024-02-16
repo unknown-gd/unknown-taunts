@@ -94,42 +94,10 @@ do
 
 if SERVER
 
+    utaunt_allow_weapon = CreateConVar( "utaunt_allow_weapon", "0", bit.bor( FCVAR_ARCHIVE, FCVAR_NOTIFY ), "Allow players to hold weapons in their hands while taunting.", 0, 1 )
+    utaunt_collision = CreateConVar( "utaunt_collision", "0", bit.bor( FCVAR_ARCHIVE, FCVAR_NOTIFY ), "Allow players to collide with each other while taunting.", 0, 1 )
     resource.AddWorkshop( "3161527342" )
-
-    do
-
-        allowedActs = {
-            ACT_GMOD_TAUNT_DANCE: true
-            ACT_GMOD_TAUNT_ROBOT: true
-            ACT_GMOD_TAUNT_CHEER: true
-            ACT_GMOD_TAUNT_LAUGH: true
-            ACT_GMOD_TAUNT_SALUTE: true
-            ACT_GMOD_TAUNT_MUSCLE: true
-            ACT_GMOD_TAUNT_PERSISTENCE: true
-
-            ACT_GMOD_GESTURE_BOW: true
-            ACT_GMOD_GESTURE_WAVE: true
-            ACT_GMOD_GESTURE_AGREE: true
-            ACT_GMOD_GESTURE_BECON: true
-            ACT_GMOD_GESTURE_DISAGREE: true
-
-            ACT_GMOD_GESTURE_RANGE_ZOMBIE: true
-            ACT_GMOD_GESTURE_TAUNT_ZOMBIE: true
-            ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL: true
-
-            ACT_GMOD_GESTURE_ITEM_GIVE: true
-            ACT_GMOD_GESTURE_ITEM_DROP: true
-            ACT_GMOD_GESTURE_ITEM_PLACE: true
-            ACT_GMOD_GESTURE_ITEM_THROW: true
-
-            ACT_SIGNAL_FORWARD: true
-            ACT_SIGNAL_GROUP: true
-            ACT_SIGNAL_HALT: true
-        }
-
-        Add "AllowUnknownTaunt", "Garry's Mod", ( ply, sequenceID ) ->
-            if allowedActs[ ply\GetSequenceActivity( sequenceID ) ]
-                return true
+    :SetCollisionGroup = ENTITY
 
     do
 
@@ -152,7 +120,7 @@ if SERVER
             -- Collision group
             collisionGroup = ply.m_bUnknownTauntCollisionGroup
             if isnumber( collisionGroup )
-                ply\SetCollisionGroup( collisionGroup )
+                SetCollisionGroup( ply, collisionGroup )
 
             ply.m_bUnknownTauntCollisionGroup = nil
 
@@ -192,7 +160,7 @@ if SERVER
 
             ply.m_bUnknownTauntSound = nil
 
-            Run( "UnknownTauntFinished", ply )
+            Run( "PlayerStoppedUnknownTaunt", ply )
 
     Add "PlayerDisconnected", addonName, lib.Stop
     Add "PostPlayerDeath", addonName, lib.Stop
@@ -202,7 +170,7 @@ if SERVER
         if sequenceID < 1
             return false
 
-        if not force and ( Run( "AllowUnknownTaunt", ply, sequenceID ) == false or Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE ) == false )
+        if not force and ( Run( "PlayerShouldUnknownTaunt", ply, sequenceID ) == false or Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE ) == false )
             return false
 
         maxPlayers = coopDances[ sequenceName ]
@@ -242,6 +210,10 @@ if SERVER
         if duration <= 0
             return false
 
+        snd = ply.m_bUnknownTauntSound
+        if snd and snd\IsPlaying!
+            snd\Stop!
+
         if isvector( startOrigin )
             ply.m_bUnknownTauntOrigin = ply\GetPos!
             ply\SetPos( startOrigin )
@@ -252,23 +224,21 @@ if SERVER
             ply\SetEyeAngles( startAngles )
             ply\SetAngles( startAngles )
 
-        ply.m_bUnknownTauntCollisionGroup = ply\GetCollisionGroup!
-        ply.m_bUnknownTauntAvoidPlayers = ply\GetAvoidPlayers!
-        ply\SetAvoidPlayers( false )
+        unless utaunt_collision\GetBool!
+            ply.m_bUnknownTauntCollisionGroup = ply\GetCollisionGroup!
+            ply.m_bUnknownTauntAvoidPlayers = ply\GetAvoidPlayers!
+            ply\SetAvoidPlayers( false )
 
-        weapon = ply\GetActiveWeapon!
-        if weapon and weapon\IsValid!
-            ply.m_bUnknownTauntWeapon = weapon\GetClass!
-            ply\SetActiveWeapon!
+        unless utaunt_allow_weapon\GetBool!
+            weapon = ply\GetActiveWeapon!
+            if weapon and weapon\IsValid!
+                ply.m_bUnknownTauntWeapon = weapon\GetClass!
+                ply\SetActiveWeapon!
 
         SetNW2Var( ply, "uTaunt-start", CurTime! - ( cycle or 0 ) * duration )
         SetNW2Var( ply, "uTaunt-name", sequenceName )
 
         ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, 0, true )
-
-        snd = ply.m_bUnknownTauntSound
-        if snd and snd\IsPlaying!
-            snd\Stop!
 
         soundPath = "unknown-taunts/" .. lower( sequenceName ) .. ".mp3"
         if file.Exists( "sound/" .. soundPath, "GAME" )
@@ -281,13 +251,13 @@ if SERVER
             snd\ChangeVolume( 1, 1 )
 
         Run( "PlayerStartTaunt", ply, ACT_GMOD_TAUNT_DANCE, duration )
-        Run( "PlayerUnknownTaunt", ply, sequenceName, duration )
+        Run( "PlayerStartUnknownTaunt", ply, sequenceName, duration )
         return true
 
     do
 
         COLLISION_GROUP_PASSABLE_DOOR = COLLISION_GROUP_PASSABLE_DOOR
-        :GetCollisionGroup, :SetCollisionGroup = ENTITY
+        :GetCollisionGroup = ENTITY
         sequenceID = 0
 
         Add "PlayerPostThink", addonName, ( ply ) ->
@@ -302,6 +272,9 @@ if SERVER
             sequenceID = LookupSequence( ply, sequenceName )
             if sequenceID < 1 or getCycle( ply, sequenceID, getStartTime( ply ) ) == 1
                 lib.Stop( ply )
+                return
+
+            if utaunt_collision\GetBool!
                 return
 
             if GetCollisionGroup( ply ) == COLLISION_GROUP_PASSABLE_DOOR
@@ -328,6 +301,39 @@ if SERVER
     Add "PlayerShouldTaunt", addonName, =>
         if isPlayingTaunt( @ )
             return false
+
+    allowedActs = {
+        ACT_GMOD_TAUNT_DANCE: true
+        ACT_GMOD_TAUNT_ROBOT: true
+        ACT_GMOD_TAUNT_CHEER: true
+        ACT_GMOD_TAUNT_LAUGH: true
+        ACT_GMOD_TAUNT_SALUTE: true
+        ACT_GMOD_TAUNT_MUSCLE: true
+        ACT_GMOD_TAUNT_PERSISTENCE: true
+
+        ACT_GMOD_GESTURE_BOW: true
+        ACT_GMOD_GESTURE_WAVE: true
+        ACT_GMOD_GESTURE_AGREE: true
+        ACT_GMOD_GESTURE_BECON: true
+        ACT_GMOD_GESTURE_DISAGREE: true
+
+        ACT_GMOD_GESTURE_RANGE_ZOMBIE: true
+        ACT_GMOD_GESTURE_TAUNT_ZOMBIE: true
+        ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL: true
+
+        ACT_GMOD_GESTURE_ITEM_GIVE: true
+        ACT_GMOD_GESTURE_ITEM_DROP: true
+        ACT_GMOD_GESTURE_ITEM_PLACE: true
+        ACT_GMOD_GESTURE_ITEM_THROW: true
+
+        ACT_SIGNAL_FORWARD: true
+        ACT_SIGNAL_GROUP: true
+        ACT_SIGNAL_HALT: true
+    }
+
+    Add "PlayerShouldUnknownTaunt", "Garry's Mod", ( ply, sequenceID ) ->
+        if allowedActs[ ply\GetSequenceActivity( sequenceID ) ]
+            return true
 
 Add "PlayerSwitchWeapon", addonName, =>
     if @IsPlayingTaunt!
@@ -363,36 +369,42 @@ do
 
     lib.GetPhrase = getPhrase
 
-Add "EntityNetworkedVarChanged", addonName, ( entity, key, _, value ) ->
-    unless entity\IsValid! and entity\IsPlayer! and Alive( entity )
-        return
+do
 
-    if key == "uTaunt-name"
-        if value == nil
-            entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
-            entity\SetRenderBounds( entity\GetModelRenderBounds! )
+    mins, maxs = Vector( -512, -512, 0 ), Vector( 512, 512, 512 )
+
+    Add "EntityNetworkedVarChanged", addonName, ( entity, key, _, value ) ->
+        unless entity\IsValid! and entity\IsPlayer! and Alive( entity )
             return
 
-        sequenceID = LookupSequence( entity, value )
-        if sequenceID < 1
+        if key == "uTaunt-name"
+            if value == nil
+                entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
+                entity\SetRenderBounds( entity\GetModelRenderBounds! )
+                return
+
+            sequenceID = LookupSequence( entity, value )
+            if sequenceID < 1
+                return
+
+            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, getCycle( entity, sequenceID, getStartTime( entity ) ), true )
+            mins[ 3 ] = entity\GetModelRenderBounds![ 3 ]
+            entity\SetRenderBounds( mins, maxs )
             return
 
-        entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, getCycle( entity, sequenceID, getStartTime( entity ) ), true )
-        entity\SetRenderBounds( entity\GetModelBounds! )
-        return
+        if key == "uTaunt-start"
+            sequenceName = GetNW2Var( entity, "uTaunt-name" )
+            if sequenceName == nil
+                return
 
-    if key == "uTaunt-start"
-        sequenceName = GetNW2Var( entity, "uTaunt-name" )
-        if sequenceName == nil
+            sequenceID = LookupSequence( entity, sequenceName )
+            if sequenceID < 1
+                return
+
+            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, getCycle( entity, sequenceID, value ), true )
+            mins[ 3 ] = entity\GetModelRenderBounds![ 3 ]
+            entity\SetRenderBounds( mins, maxs )
             return
-
-        sequenceID = LookupSequence( entity, sequenceName )
-        if sequenceID < 1
-            return
-
-        entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, getCycle( entity, sequenceID, value ), true )
-        entity\SetRenderBounds( entity\GetModelBounds! )
-        return
 
 Add "NotifyShouldTransmit", addonName, ( entity, shouldtransmit ) ->
     unless shouldtransmit and entity\IsValid! and entity\IsPlayer! and Alive( entity )
@@ -422,7 +434,7 @@ lib.ToggleMenu = ( ply ) ->
         panel\Remove!
         return
 
-    if Run( "AllowTauntMenu", ply ) == false
+    if Run( "AllowUnknownTauntMenu", ply ) == false
         return
 
     panel = vgui.Create( "uTaunt::Menu" )
@@ -501,7 +513,7 @@ do
         ACT_SIGNAL_HALT
     }
 
-    Add "UnknownTauntsMenuSetup", "Garry's Mod", ( add ) =>
+    Add "UnknownTauntMenuSetup", "Garry's Mod", ( add ) =>
         sequences, sequencesCount = {}, 0
         for act in *acts
             sequenceID = @SelectWeightedSequence( act )
@@ -541,8 +553,20 @@ do
 
             DScrollPanel.PerformLayout( scrollPanel, width, height )
 
-        Run "UnknownTauntsMenuSetup", ply, ( title, sequences ) ->
-            if not istable( sequences ) or #sequences == 0
+        Run "UnknownTauntMenuSetup", ply, ( title, sequences ) ->
+            if not istable( sequences )
+                return
+
+            length = #sequences
+            if length == 0
+                return
+
+            for index = 1, length
+                if Run( "AllowUnknownTaunt", ply, sequences[ index ], title ) == false
+                    sequences[ index ] = false
+                    length -= 1
+
+            if length == 0
                 return
 
             combo = @[ title ]
@@ -561,8 +585,9 @@ do
                     RunConsoleCommand( "utaunt", name )
                     @Close!
 
-            for name in *sequences
-                combo\AddChoice( getPhrase( "unknown_taunts." .. name ), name )
+            for index = 1, length
+                if sequences[ index ] ~= false
+                    combo\AddChoice( getPhrase( "unknown_taunts." .. sequences[ index ] ), sequences[ index ] )
 
     PANEL.PerformLayout = ( width, height ) =>
         scrollPanel = @ScrollPanel
