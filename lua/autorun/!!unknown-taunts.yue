@@ -202,7 +202,7 @@ if SERVER
         if sequenceID < 1
             return false
 
-        if not force and Run( "AllowUnknownTaunt", ply, sequenceID ) == false and Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE ) == false
+        if not force and ( Run( "AllowUnknownTaunt", ply, sequenceID ) == false or Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE ) == false )
             return false
 
         maxPlayers = coopDances[ sequenceName ]
