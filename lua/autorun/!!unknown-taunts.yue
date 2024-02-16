@@ -94,6 +94,8 @@ do
 
 if SERVER
 
+    resource.AddWorkshop( "3161527342" )
+
     do
 
         allowedActs = {
