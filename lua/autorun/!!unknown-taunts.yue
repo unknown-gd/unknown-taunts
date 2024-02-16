@@ -410,6 +410,9 @@ Add "NotifyShouldTransmit", addonName, ( entity, shouldtransmit ) ->
     return
 
 lib.ToggleMenu = ( ply ) ->
+    if ply\IsCPlayingTaunt!
+        return
+
     if isPlayingTaunt( ply )
         RunConsoleCommand( "utaunt" )
         return
