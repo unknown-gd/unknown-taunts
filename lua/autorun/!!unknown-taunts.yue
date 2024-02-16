@@ -356,8 +356,8 @@ do
 
     getPhrase = ( placeholder ) ->
         fulltext = GetPhrase( placeholder )
-        if fulltext == placeholder and sub( placeholder, 1, 13 ) == "unknown_taunts."
-            return GetPhrase( sub( placeholder, 14 ) )
+        if fulltext == placeholder and sub( placeholder, 1, 15 ) == "unknown_taunts."
+            return GetPhrase( sub( placeholder, 16 ) )
 
         return fulltext
 
