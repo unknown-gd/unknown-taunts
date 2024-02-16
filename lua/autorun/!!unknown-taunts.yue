@@ -572,7 +572,7 @@ do
                 @Close!
                 return
 
-            @SetTall( height + 48 )
+            @SetTall( math.min( height + 48, ScrH! * 0.5 ) )
 
         DFrame.PerformLayout( @, width, height )
 
