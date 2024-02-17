@@ -15,3 +15,27 @@ By default addon does not contain animations from Custom Taunt, you can install 
 
 ## Where is Lua code?
 Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua code can be found in [releases](https://github.com/PrikolMen/unknown-taunts/releases) and [lua branch](https://github.com/PrikolMen/unknown-taunts/tree/lua), or you can compile it yourself using compiled [Yuescript Compiler](https://github.com/pigpigyyy/Yuescript/releases/latest).
+
+## Docs
+
+### Server Functions
+- `boolean` uTaunt.Start( `Player` ply, `string` sequenceName, `boolean` force, `float` cycle, `Vector` startOrigin, `Angle` startAngles )
+- `boolean` uTaunt.Join( `Player` ply, `Player` dancingPlayer )
+- `boolean` uTaunt.Stop( `Player` ply )
+
+### Shared Functions
+- `table` uTaunt.FindSequences( `Entity` entity, `string` pattern )
+- `float` uTaunt.GetCycle( `Player` ply, `int` sequenceID, `float` startTime )
+- `float` uTaunt.GetStartTime( `Player` ply ) - returns start time point in CurTime.
+- `boolean` uTaunt.IsPlayingTaunt( `Player` ply )
+- `boolean` uTaunt.IsValidTauntingPlayer( `Player` ply )
+
+### Server Hooks
+- GM:PlayerStoppedUnknownTaunt( `Player` ply, `string` sequenceName )
+- GM:PlayerShouldUnknownTaunt( `Player` ply, `int` sequenceID )
+- GM:PlayerStartUnknownTaunt( `Player` ply, `string` sequenceName, `float` duration )
+
+### Client Hooks
+- GM:AllowUnknownTauntMenu( `Player` ply )
+- GM:UnknownTauntMenuSetup( `Player` ply, `function` add )
+- GM:AllowUnknownTaunt( `Player` ply, `string` sequenceName, `string` categoryTitle )
