@@ -1,5 +1,5 @@
 ### User-friendly and simple API to create, play and control taunts, dances and any other player sequences.
-By default addon does not contain animations from Custom Taunt, you can install them individually. Check out this collection: [uTaunt](https://steamcommunity.com/workshop/filedetails/?id=3161525439)
+By default addon does not contain animations from Custom Taunt, you can install them individually, check out this collection: [uTaunt](https://steamcommunity.com/workshop/filedetails/?id=3161525439)
 
 ## Features
 - **High Performance** - addon has a very low hardware requirements.
