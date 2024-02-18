@@ -115,7 +115,7 @@ if SERVER
         lib.Stop = ( ply ) ->
             sequenceName = GetNW2Var( ply, "uTaunt-name" )
             if sequenceName == nil
-                return
+                return false
 
             ply\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
             SetNW2Var( ply, "uTaunt-angles", nil )
@@ -174,6 +174,7 @@ if SERVER
             ply.m_csUnknownTauntSound = nil
 
             Run( "PlayerStoppedUnknownTaunt", ply, sequenceName )
+            return true
 
     Add "PlayerDisconnected", addonName, lib.Stop
     Add "PostPlayerDeath", addonName, lib.Stop
