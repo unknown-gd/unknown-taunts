@@ -13,6 +13,11 @@ By default addon does not contain animations from Custom Taunt, you can install 
 - **utaunts** - *opens/closes UI, as well as stops current sequence if it is running.*
 - **utaunt** - *executes the sequence specified by first argument or stops current sequence if nothing is specified.*
 
+### ConVars
+- **utaunt_coop_distance** - *Minimum required distance to join in a co-op taunt.*
+- **utaunt_allow_weapon** - *Allow players to hold weapons in their hands while taunting.*
+- **utaunt_collisions** - *Allow players to collide with each other while taunting.*
+
 ## Where is Lua code?
 Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua code can be found in [releases](https://github.com/PrikolMen/unknown-taunts/releases) and [lua branch](https://github.com/PrikolMen/unknown-taunts/tree/lua), or you can compile it yourself using compiled [Yuescript Compiler](https://github.com/pigpigyyy/Yuescript/releases/latest).
 
