@@ -471,13 +471,13 @@ concommand.Add "utaunts", lib.ToggleMenu
 do
 
     IsFirstTimePredicted = IsFirstTimePredicted
-    KEY_F6, KEY_SPACE = KEY_F6, KEY_SPACE
+    KEY_F7, KEY_SPACE = KEY_F7, KEY_SPACE
 
     Add "PlayerButtonDown", addonName, ( ply, keyCode ) ->
         unless IsFirstTimePredicted!
             return
 
-        if keyCode == KEY_F6
+        if keyCode == KEY_F7
             bind = input.LookupKeyBinding( keyCode )
             if bind and #bind ~= 0
                 return
