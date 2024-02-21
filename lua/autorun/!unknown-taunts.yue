@@ -208,7 +208,7 @@ if SERVER
             -- Sound/Music
             cSound = ply.m_csUnknownTauntSound
             if cSound and cSound\IsPlaying!
-                cSound\FadeOut( 1 )
+                cSound\Stop!
 
             ply.m_csUnknownTauntSound = nil
 
@@ -287,7 +287,7 @@ if SERVER
             if Exists( "sound/" .. soundPath, "GAME" )
                 cSound = CreateSound( ply, soundPath )
                 ply.m_csUnknownTauntSound = cSound
-                cSound\ChangeVolume( 0 )
+                cSound\ChangeVolume( 0, 0 )
                 cSound\SetDSP( 1 )
                 cSound\Play!
 
