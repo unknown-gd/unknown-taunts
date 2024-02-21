@@ -24,23 +24,23 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 ## Docs
 
 ### Server Functions
-- `boolean` uTaunt.Start( `Player` ply, `string` sequenceName, `boolean` force, `float` cycle, `Vector` startOrigin, `Angle` startAngles ) - returns `true` if successful, otherwise `false`.
-- `boolean` uTaunt.Join( `Player` ply, `Player` dancingPlayer ) - returns `true` if successful, otherwise `false`.
-- `boolean` uTaunt.Stop( `Player` ply ) - returns `true` if successful, otherwise `false`.
+- `boolean` uTaunt.Start( `Player` ply, `string` sequenceName, `boolean` force, `float` cycle, `Vector` startOrigin, `Angle` startAngles ) - returns **true** if successful, otherwise **false**.
+- `boolean` uTaunt.Join( `Player` ply, `Player` dancingPlayer ) - returns **true** if successful, otherwise **false**.
+- `boolean` uTaunt.Stop( `Player` ply ) - returns **true** if successful, otherwise **false**.
 
 ### Shared Functions
 - `table` uTaunt.FindSequences( `Entity` entity, `string` pattern ) - returns list with sequences data like `{ id = 0, name = "idle", duration = 1 }`.
-- `float` uTaunt.GetCycle( `Player` ply, `int` sequenceID, `float` startTime ) - retuns sequence progress from 0 to 1 as float.
-- `float` uTaunt.GetStartTime( `Player` ply ) - returns start time point in CurTime as float.
-- `boolean` uTaunt.IsPlayingTaunt( `Player` ply ) - returns `true` if player is using uTaunt ( taunt at this time ).
-- `boolean` uTaunt.IsValidTauntingPlayer( `Entity` entity ) - returns `true` if entity is a valid and alive player that using uTaunt ( taunt at this time ). 
+- `float` uTaunt.GetCycle( `Player` ply, `int` sequenceID, `double` startTime ) - retuns sequence progress from 0 to 1 as **float**.
+- `double` uTaunt.GetStartTime( `Player` ply ) - returns start time point in CurTime as **double**.
+- `boolean` uTaunt.IsPlayingTaunt( `Player` ply ) - returns **true** if player is using uTaunt ( taunt at this time ).
+- `boolean` uTaunt.IsValidTauntingPlayer( `Entity` entity ) - returns **true** if entity is a valid and alive player that using uTaunt ( taunt at this time ).
 
 ### Server Hooks
-- GM:PlayerStoppedUnknownTaunt( `Player` ply, `string` sequenceName ) - calls when player stops a taunt.
-- GM:PlayerShouldUnknownTaunt( `Player` ply, `int` sequenceID ) - if `false` is returned here, taunt will be blocked, if `true` then allowed.
-- GM:PlayerStartUnknownTaunt( `Player` ply, `string` sequenceName, `float` duration ) - calls when a player starts a taunt.
+- GM:PlayerStoppedUnknownTaunt( `Player` ply, `string` sequenceName, `boolean` isFinished, `double` timeRemaining ) - called when a player's taunt was stopped.
+- GM:PlayerShouldUnknownTaunt( `Player` ply, `int` sequenceID ) - if **false** is returned here, taunt will be blocked, if **true** then allowed.
+- GM:PlayerStartUnknownTaunt( `Player` ply, `string` sequenceName, `double` duration ) - called when a player's taunt was started.
 
 ### Client Hooks
-- GM:AllowUnknownTauntMenu( `Player` ply ) - if `false` is returned here, the taunt menu opening will be blocked.
-- GM:UnknownTauntMenuSetup( `Player` ply, `function` add ) - called when taunt menu is being created, with `add` you can add more taunts and categories to that menu `add( "title", sequenceNamesList )`.
-- GM:AllowUnknownTaunt( `Player` ply, `string` sequenceName, `string` categoryTitle ) - taunt filter for a player, if `false` is returned here, taunt will be hidden in the taunt menu.
+- GM:AllowUnknownTauntMenu( `Player` ply ) - if **false** is returned here, the taunt menu opening will be blocked.
+- GM:UnknownTauntMenuSetup( `Player` ply, `function` add ) - called when taunt menu is being created, with '**add**' you can add more taunts and categories to that menu `add( "title", sequenceNamesList )`.
+- GM:AllowUnknownTaunt( `Player` ply, `string` sequenceName, `string` categoryTitle ) - taunt filter for a player, if **false** is returned here, taunt will be hidden in the taunt menu.
