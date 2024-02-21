@@ -126,7 +126,7 @@ if SERVER
     utaunt_allow_weapon = CreateConVar( "utaunt_allow_weapon", "0", FCVAR_ARCHIVE, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
     utaunt_collisions = CreateConVar( "utaunt_collisions", "0", FCVAR_ARCHIVE, "Allow players to collide with each other while taunting.", 0, 1 )
     resource.AddWorkshop( "3161527342" )
-    :SetCollisionGroup = ENTITY
+    :GetModel, :SetCollisionGroup = ENTITY
 
     Add "PlayerInitialSpawn", addonName, ( ply ) ->
         ply.m_tUnknownTauntPlayers = {}
@@ -252,6 +252,8 @@ if SERVER
             if cSound and cSound\IsPlaying!
                 cSound\Stop!
 
+            ply.m_sUnknownTauntModel = GetModel( ply )
+
             if isvector( startOrigin )
                 ply.m_vUnknownTauntOrigin = ply\GetPos!
                 ply\SetPos( startOrigin )
@@ -281,16 +283,15 @@ if SERVER
 
             ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, 0, true )
 
-            if cycle < 0.025
-                soundPath = "unknown-taunts/" .. lower( sequenceName ) .. ".mp3"
-                if Exists( "sound/" .. soundPath, "GAME" )
-                    cSound = CreateSound( ply, soundPath )
-                    ply.m_csUnknownTauntSound = cSound
-                    cSound\ChangeVolume( 0 )
-                    cSound\SetDSP( 1 )
-                    cSound\Play!
+            soundPath = "unknown-taunts/" .. lower( sequenceName ) .. ".mp3"
+            if Exists( "sound/" .. soundPath, "GAME" )
+                cSound = CreateSound( ply, soundPath )
+                ply.m_csUnknownTauntSound = cSound
+                cSound\ChangeVolume( 0 )
+                cSound\SetDSP( 1 )
+                cSound\Play!
 
-                    cSound\ChangeVolume( 1, 1 )
+                cSound\ChangeVolume( 1, 1 )
 
             Run( "PlayerStartTaunt", ply, ACT_GMOD_TAUNT_DANCE, duration )
             Run( "PlayerStartUnknownTaunt", ply, sequenceName, duration )
@@ -346,6 +347,10 @@ if SERVER
 
             cycle = getCycle( ply, sequenceID )
             if Run( "PlayerTauntThink", ply, sequenceName, cycle, sequenceID ) == false or cycle == 1
+                forcedFinish( ply )
+                return
+
+            if GetModel( ply ) ~= ply.m_sUnknownTauntModel
                 forcedFinish( ply )
                 return
 
