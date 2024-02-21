@@ -43,6 +43,6 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - GM:PlayerTauntThink( `Player` ply, `string` sequenceName, `float` cycle, `int` sequenceID ) - called while a player is taunting, if **false** is returned here, taunt will be stopped.
 
 ### Client Hooks
-- GM:AllowUnknownTauntMenu( `Player` ply ) - if **false** is returned here, the taunt menu opening will be blocked.
+- GM:AllowTauntMenu( `Player` ply ) - if **false** is returned here then taunt menu opening will be blocked.
 - GM:UnknownTauntMenuSetup( `Player` ply, `function` add ) - called when taunt menu is being created, with '**add**' you can add more taunts and categories to that menu `add( "title", sequenceNamesList )`.
 - GM:AllowUnknownTaunt( `Player` ply, `string` sequenceName, `string` categoryTitle ) - taunt filter for a player, if **false** is returned here, taunt will be hidden in the taunt menu.

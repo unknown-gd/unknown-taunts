@@ -493,7 +493,7 @@ lib.ToggleMenu = ( ply ) ->
         panel\Remove!
         return
 
-    if Run( "AllowUnknownTauntMenu", ply ) == false
+    if Run( "AllowTauntMenu", ply ) == false
         return
 
     panel = vgui.Create( "uTaunt::Menu" )
