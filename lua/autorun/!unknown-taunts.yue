@@ -50,7 +50,7 @@ isPlayingTaunt = ( ply ) ->
 lib.IsPlayingTaunt = isPlayingTaunt
 
 getStartTime = ( ply ) ->
-    return GetNW2Var( ply, "uTaunt-start", 0 )
+    return GetNW2Var( ply, "uTaunt-start" ) or CurTime!
 
 lib.GetStartTime = getStartTime
 
