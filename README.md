@@ -27,14 +27,16 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - `boolean` uTaunt.Start( `Player` ply, `string` sequenceName, `boolean` force, `float` cycle, `Vector` startOrigin, `Angle` startAngles ) - returns **true** if successful, otherwise **false**.
 - `boolean` uTaunt.Join( `Player` ply, `Player` dancingPlayer ) - returns **true** if successful, otherwise **false**.
 - `boolean` uTaunt.Stop( `Player` ply ) - returns **true** if successful, otherwise **false**.
+- `string` - uTaunt.SetSequenceName( `Player` ply, `string` sequenceName ) - sets sequence name as **string**.
 - `boolean` uTaunt.SetCycle( `Player` ply, `int` sequenceID, `float` cycle ) - sets sequence progress from 0 to 1 as **float**, returns **true** if successful, otherwise **false**.
 
 ### Shared Functions
 - `table` uTaunt.FindSequences( `Entity` entity, `string` pattern ) - returns list with sequences data like `{ id = 0, name = "idle", duration = 1 }`.
-- `float` uTaunt.GetCycle( `Player` ply, `int` sequenceID, `double` startTime ) - retuns sequence progress from 0 to 1 as **float**.
-- `double` uTaunt.GetStartTime( `Player` ply ) - returns start time point in CurTime as **double**.
-- `boolean` uTaunt.IsPlayingTaunt( `Player` ply ) - returns **true** if player is using uTaunt ( taunt at this time ).
 - `boolean` uTaunt.IsValidTauntingPlayer( `Entity` entity ) - returns **true** if entity is a valid and alive player that using uTaunt ( taunt at this time ).
+- `boolean` uTaunt.IsPlayingTaunt( `Player` ply ) - returns **true** if player is using uTaunt ( taunt at this time ).
+- `string` uTaunt.GetSequenceName( `Player` ply ) - returns current sequence name as **string**.
+- `double` uTaunt.GetStartTime( `Player` ply ) - returns start time point in CurTime as **double**.
+- `float` uTaunt.GetCycle( `Player` ply, `int` sequenceID, `double` startTime ) - retuns sequence progress from 0 to 1 as **float**.
 
 ### Server Hooks
 - GM:PlayerFinishedTaunt( `Player` ply, `string` sequenceName ) - called when a player's taunt was stopped.

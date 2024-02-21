@@ -44,6 +44,9 @@ unless isCPlayingTaunt
     isCPlayingTaunt = PLAYER.IsPlayingTaunt
     PLAYER.IsCPlayingTaunt = isCPlayingTaunt
 
+lib.GetSequenceName = ( ply ) ->
+    return GetNW2Var( ply, "uTaunt-name", "" )
+
 isPlayingTaunt = ( ply ) ->
     return GetNW2Var( ply, "uTaunt-name" ) ~= nil
 
@@ -98,6 +101,9 @@ isValidTauntingPlayer = ( ply ) ->
 lib.IsValidTauntingPlayer = isValidTauntingPlayer
 
 if SERVER
+
+    lib.SetSequenceName = ( ply, sequenceName ) ->
+        SetNW2Var( ply, "uTaunt-name", sequenceName )
 
     lib.SetCycle = ( ply, cycle, sequenceID ) ->
         unless isnumber( cycle )
