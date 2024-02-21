@@ -37,7 +37,7 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - `boolean` uTaunt.IsValidTauntingPlayer( `Entity` entity ) - returns **true** if entity is a valid and alive player that using uTaunt ( taunt at this time ).
 
 ### Server Hooks
-- GM:PlayerStoppedUnknownTaunt( `Player` ply, `string` sequenceName, `boolean` isFinished, `double` timeRemaining ) - called when a player's taunt was stopped.
+- GM:PlayerFinishedTaunt( `Player` ply, `string` sequenceName ) - called when a player's taunt was stopped.
 - GM:PlayerShouldUnknownTaunt( `Player` ply, `int` sequenceID ) - if **false** is returned here, taunt will be blocked, if **true** then allowed.
 - GM:PlayerStartUnknownTaunt( `Player` ply, `string` sequenceName, `double` duration ) - called when a player's taunt was started.
 - GM:PlayerTauntThink( `Player` ply, `string` sequenceName, `float` cycle, `int` sequenceID ) - called while a player is taunting, if **false** is returned here, taunt will be stopped.

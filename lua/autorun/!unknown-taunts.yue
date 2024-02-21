@@ -191,18 +191,7 @@ if SERVER
 
             ply.m_csUnknownTauntSound = nil
 
-            sequenceID = LookupSequence( ply, sequenceName )
-            if sequenceID < 1
-                Run( "PlayerStoppedUnknownTaunt", ply, sequenceName, false, 0 )
-                return true
-
-            finishTime = getStartTime( ply ) + SequenceDuration( ply, sequenceID )
-            if finishTime >= CurTime!
-                finishTime -= CurTime!
-                Run( "PlayerStoppedUnknownTaunt", ply, sequenceName, false, finishTime )
-                return true
-
-            Run( "PlayerStoppedUnknownTaunt", ply, sequenceName, true, 0 )
+            Run( "PlayerFinishedTaunt", ply, sequenceName )
             return true
 
     Add "PlayerDisconnected", addonName, lib.Stop
