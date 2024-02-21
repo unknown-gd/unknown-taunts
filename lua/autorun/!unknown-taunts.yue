@@ -63,7 +63,7 @@ do
     :Clamp = math
 
     getCycle = ( ply, sequenceID, startTime ) ->
-        return Clamp( ( CurTime! - startTime ) / SequenceDuration( ply, sequenceID ), 0, 1 )
+        return Clamp( ( CurTime! - ( startTime or getStartTime( ply ) ) ) / SequenceDuration( ply, sequenceID ), 0, 1 )
 
     lib.GetCycle = getCycle
 
@@ -261,7 +261,7 @@ if SERVER
             return false
 
         unless isnumber( coopDances[ sequenceName ] )
-            return lib.Start( ply, sequenceName, true, getCycle( otherPlayer, sequenceID, GetNW2Var( otherPlayer, "uTaunt-start" ) or CurTime! ) )
+            return lib.Start( ply, sequenceName, true, getCycle( otherPlayer, sequenceID ) )
 
         danceName, danceID = match( sequenceName, "^([%a_]+_?)(%d+)$" )
         if danceName == nil or danceID == nil
@@ -275,7 +275,7 @@ if SERVER
         for index = 1, coopDances[ sequenceName ]
             if not isValidTauntingPlayer( players[ index ] ) or players[ index ] == ply
                 players[ index ] = ply
-                return lib.Start( ply, danceName .. ( danceID + index ), true, getCycle( otherPlayer, sequenceID, GetNW2Var( otherPlayer, "uTaunt-start" ) or CurTime! ), otherPlayer\GetPos!, otherPlayer\EyeAngles! )
+                return lib.Start( ply, danceName .. ( danceID + index ), true, getCycle( otherPlayer, sequenceID ), otherPlayer\GetPos!, otherPlayer\EyeAngles! )
 
         return false
 
@@ -295,7 +295,7 @@ if SERVER
                 return
 
             sequenceID = LookupSequence( ply, sequenceName )
-            if sequenceID < 1 or getCycle( ply, sequenceID, getStartTime( ply ) ) == 1
+            if sequenceID < 1 or getCycle( ply, sequenceID ) == 1
                 lib.Stop( ply )
                 return
 
@@ -412,7 +412,7 @@ do
             if sequenceID < 1
                 return
 
-            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, getCycle( entity, sequenceID, getStartTime( entity ) ), true )
+            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, getCycle( entity, sequenceID ), true )
             mins[ 3 ] = entity\GetModelRenderBounds![ 3 ]
             entity\SetRenderBounds( mins, maxs )
             return
@@ -443,7 +443,7 @@ Add "NotifyShouldTransmit", addonName, ( entity, shouldtransmit ) ->
     if sequenceID < 1
         return
 
-    entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, getCycle( entity, sequenceID, getStartTime( entity ) ), true )
+    entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, getCycle( entity, sequenceID ), true )
     return
 
 lib.ToggleMenu = ( ply ) ->
