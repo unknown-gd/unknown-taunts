@@ -324,7 +324,12 @@ if SERVER
                 return
 
             sequenceID = LookupSequence( ply, sequenceName )
-            if sequenceID < 1 or getCycle( ply, sequenceID ) == 1
+            if sequenceID < 1
+                lib.Stop( ply )
+                return
+
+            cycle = getCycle( ply, sequenceID )
+            if Run( "PlayerTauntThink", ply, sequenceName, cycle, sequenceID ) == false or cycle == 1
                 lib.Stop( ply )
                 return
 
