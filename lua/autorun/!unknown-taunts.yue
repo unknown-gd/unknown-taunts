@@ -99,6 +99,23 @@ lib.IsValidTauntingPlayer = isValidTauntingPlayer
 
 if SERVER
 
+    lib.SetCycle = ( ply, cycle, sequenceID ) ->
+        unless isnumber( cycle )
+            cycle = 0
+
+        unless isnumber( sequenceID )
+            sequenceName = GetNW2Var( ply, "uTaunt-name" )
+            if sequenceName == nil
+                return false
+
+            sequenceID = LookupSequence( ply, sequenceName )
+
+        if sequenceID < 1
+            return false
+
+        SetNW2Var( ply, "uTaunt-start", CurTime! - ( cycle * SequenceDuration( ply, sequenceID ) ) )
+        return true
+
     utaunt_coop_distance = CreateConVar( "utaunt_coop_distance", "256", FCVAR_ARCHIVE, "Minimum required distance to join in a co-op taunt.", 0, 16384 )
     utaunt_allow_weapon = CreateConVar( "utaunt_allow_weapon", "0", FCVAR_ARCHIVE, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
     utaunt_collisions = CreateConVar( "utaunt_collisions", "0", FCVAR_ARCHIVE, "Allow players to collide with each other while taunting.", 0, 1 )

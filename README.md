@@ -27,6 +27,7 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - `boolean` uTaunt.Start( `Player` ply, `string` sequenceName, `boolean` force, `float` cycle, `Vector` startOrigin, `Angle` startAngles ) - returns **true** if successful, otherwise **false**.
 - `boolean` uTaunt.Join( `Player` ply, `Player` dancingPlayer ) - returns **true** if successful, otherwise **false**.
 - `boolean` uTaunt.Stop( `Player` ply ) - returns **true** if successful, otherwise **false**.
+- `boolean` uTaunt.SetCycle( `Player` ply, `int` sequenceID, `float` cycle ) - sets sequence progress from 0 to 1 as **float**, returns **true** if successful, otherwise **false**.
 
 ### Shared Functions
 - `table` uTaunt.FindSequences( `Entity` entity, `string` pattern ) - returns list with sequences data like `{ id = 0, name = "idle", duration = 1 }`.
