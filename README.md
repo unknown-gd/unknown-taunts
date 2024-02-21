@@ -39,9 +39,10 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - `float` uTaunt.GetCycle( `Player` ply, `int` sequenceID, `double` startTime ) - retuns sequence progress from 0 to 1 as **float**.
 
 ### Server Hooks
-- GM:PlayerFinishedTaunt( `Player` ply, `string` sequenceName ) - called when a player's taunt was stopped.
-- GM:PlayerShouldUnknownTaunt( `Player` ply, `int` sequenceID ) - if **false** is returned here, taunt will be blocked, if **true** then allowed.
 - GM:PlayerStartUnknownTaunt( `Player` ply, `string` sequenceName, `double` duration ) - called when a player's taunt was started.
+- GM:PlayerFinishedTaunt( `Player` ply, `string` sequenceName, `boolean` isFinished, `double` timeRemaining, `int` sequenceID, `double` finishTime ) - called when a player's taunt was stopped.
+- GM:PlayerShouldUnknownTaunt( `Player` ply, `int` sequenceID ) - if **false** is returned here, taunt will be blocked, if **true** then allowed.
+- GM:PlayerShouldFinishTaunt( `Player` ply, `string` sequenceName, `boolean` isFinished, `double` timeRemaining, `int` sequenceID, `double` finishTime ) - if return here **false** taunt won't be stopped ( personally, I don't recommend using this, but if you need... ).
 - GM:PlayerTauntThink( `Player` ply, `string` sequenceName, `float` cycle, `int` sequenceID ) - called while a player is taunting, if **false** is returned here, taunt will be stopped.
 
 ### Client Hooks

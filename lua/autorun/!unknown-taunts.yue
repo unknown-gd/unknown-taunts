@@ -131,14 +131,29 @@ if SERVER
     Add "PlayerInitialSpawn", addonName, ( ply ) ->
         ply.m_tUnknownTauntPlayers = {}
 
+    finish = nil
     do
 
-        sequenceID, finishTime = 0, 0
+        sequenceName, sequenceID, curTime, finishTime, timeRemaining = "", 0, 0, 0, 0
         isbool = isbool
 
-        lib.Stop = ( ply ) ->
+        finish = ( ply, force ) ->
             sequenceName = GetNW2Var( ply, "uTaunt-name" )
             if sequenceName == nil
+                return false
+
+            curTime, timeRemaining = CurTime!, 0
+            finishTime = curTime
+
+            sequenceID = LookupSequence( ply, sequenceName )
+            if sequenceID > 0
+                finishTime = getStartTime( ply ) + SequenceDuration( ply, sequenceID )
+
+                timeRemaining = finishTime - curTime
+                if timeRemaining < 0
+                    timeRemaining = 0
+
+            if not force and Run( "PlayerShouldFinishTaunt", ply, sequenceName, finishTime < curTime, timeRemaining, sequenceID, finishTime ) == false
                 return false
 
             ply\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
@@ -152,7 +167,7 @@ if SERVER
                 players[ index ] = nil
 
                 if isValidTauntingPlayer( otherPlayer )
-                    lib.Stop( otherPlayer )
+                    finish( otherPlayer, force )
 
             -- Collision group
             collisionGroup = ply.m_iUnknownTauntCollisionGroup
@@ -197,11 +212,17 @@ if SERVER
 
             ply.m_csUnknownTauntSound = nil
 
-            Run( "PlayerFinishedTaunt", ply, sequenceName )
+            Run( "PlayerFinishedTaunt", ply, sequenceName, finishTime < curTime, timeRemaining, sequenceID, finishTime )
             return true
 
-    Add "PlayerDisconnected", addonName, lib.Stop
-    Add "PostPlayerDeath", addonName, lib.Stop
+        lib.Finish = finish
+
+    forcedFinish = ( ply ) ->
+        finish( ply, true )
+        return
+
+    Add "PlayerDisconnected", addonName, forcedFinish
+    Add "PostPlayerDeath", addonName, forcedFinish
 
     do
 
@@ -315,17 +336,17 @@ if SERVER
                 return
 
             unless Alive( ply )
-                lib.Stop( ply )
+                forcedFinish( ply )
                 return
 
             sequenceID = LookupSequence( ply, sequenceName )
             if sequenceID < 1
-                lib.Stop( ply )
+                forcedFinish( ply )
                 return
 
             cycle = getCycle( ply, sequenceID )
             if Run( "PlayerTauntThink", ply, sequenceName, cycle, sequenceID ) == false or cycle == 1
-                lib.Stop( ply )
+                forcedFinish( ply )
                 return
 
             if utaunt_collisions\GetBool!
@@ -342,7 +363,7 @@ if SERVER
             return
 
         if isPlayingTaunt( ply )
-            lib.Stop( ply )
+            finish( ply, false )
             return
 
         if ply\IsCPlayingTaunt!
@@ -622,8 +643,8 @@ do
             for index = 1, length
                 if Run( "AllowUnknownTaunt", ply, sequences[ index ], title ) == false
                     sequences[ index ] = false
-                    length -= 1
 
+            length = #sequences
             if length == 0
                 return
 
