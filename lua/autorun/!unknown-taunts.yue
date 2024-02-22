@@ -405,13 +405,13 @@ if SERVER
                 forcedFinish( ply )
                 return
 
-            cycle = getCycle( ply, sequenceID )
-            if Run( "PlayerTauntThink", ply, sequenceName, cycle, sequenceID ) == false or cycle == 1
+            if GetModel( ply ) ~= ply.m_sUnknownTauntModel
                 forcedFinish( ply )
                 return
 
-            if GetModel( ply ) ~= ply.m_sUnknownTauntModel
-                forcedFinish( ply )
+            cycle = getCycle( ply, sequenceID )
+            if Run( "PlayerTauntThink", ply, sequenceName, cycle, sequenceID ) == false or cycle == 1
+                finish( ply, false )
                 return
 
             if utaunt_collisions\GetBool!
