@@ -28,9 +28,11 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 ### Server Functions
 - `boolean` uTaunt.Start( `Player` ply, `string` sequenceName, `boolean` force, `float` cycle, `Vector` startOrigin, `Angle` startAngles ) - returns **true** if successful, otherwise **false**.
 - `boolean` uTaunt.Join( `Player` ply, `Player` dancingPlayer ) - returns **true** if successful, otherwise **false**.
-- `boolean` uTaunt.Stop( `Player` ply ) - returns **true** if successful, otherwise **false**.
+- `boolean` uTaunt.Finish( `Player` ply ) - returns **true** if successful, otherwise **false**.
 - `string` - uTaunt.SetSequenceName( `Player` ply, `string` sequenceName ) - sets sequence name as **string**.
 - `boolean` uTaunt.SetCycle( `Player` ply, `int` sequenceID, `float` cycle ) - sets sequence progress from 0 to 1 as **float**, returns **true** if successful, otherwise **false**.
+- uTaunt.SetRenderAngles( `Player` ply, `Angle` angles ) - sets angles of player render as **Angle**.
+- uTaunt.IsAudioEnabled( `Player` ply ) - returns **true** if sequences audio is enabled.
 
 ### Shared Functions
 - `table` uTaunt.FindSequences( `Entity` entity, `string` pattern ) - returns list with sequences data like `{ id = 0, name = "idle", duration = 1 }`.
@@ -39,10 +41,12 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - `string` uTaunt.GetSequenceName( `Player` ply ) - returns current sequence name as **string**.
 - `double` uTaunt.GetStartTime( `Player` ply ) - returns start time point in CurTime as **double**.
 - `float` uTaunt.GetCycle( `Player` ply, `int` sequenceID, `double` startTime ) - retuns sequence progress from 0 to 1 as **float**.
+- `Angle` uTaunt.GetRenderAngles( `Player` ply ) - returns player render angles as **Angle**.
 
 ### Client Functions
 - uTaunt.ToggleMenu( `Player` ply ) - toggles uTaunt menu.
 - `string` uTaunt.GetPhrase( `string` placeholder ) - returns localized phrase as **string**.
+- `boolean` uTaunt.IsAudioEnabled() - returns **true** if sequences audio is enabled.
 
 ### Server Hooks
 - GM:PlayerStartedUnknownTaunt( `Player` ply, `string` sequenceName, `double` duration ) - called when a player's taunt was started.

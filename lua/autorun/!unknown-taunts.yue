@@ -48,6 +48,9 @@ unless isCPlayingTaunt
 lib.GetSequenceName = ( ply ) ->
     return GetNW2Var( ply, "uTaunt-name", "" )
 
+lib.GetRenderAngles = ( ply ) ->
+    return GetNW2Var( ply, "uTaunt-angles", ply\GetAngles! )
+
 isPlayingTaunt = ( ply ) ->
     return GetNW2Var( ply, "uTaunt-name" ) ~= nil
 
@@ -136,8 +139,13 @@ lib.IsValidTauntingPlayer = isValidTauntingPlayer
 
 if SERVER
 
+    :GetInfo = PLAYER
+
     lib.SetSequenceName = ( ply, sequenceName ) ->
         SetNW2Var( ply, "uTaunt-name", sequenceName )
+
+    lib.SetRenderAngles = ( ply, angles ) ->
+        SetNW2Var( ply, "uTaunt-angles", angles )
 
     lib.SetCycle = ( ply, cycle, sequenceID ) ->
         unless isnumber( cycle )
@@ -155,6 +163,9 @@ if SERVER
 
         SetNW2Var( ply, "uTaunt-start", CurTime! - ( cycle * SequenceDuration( ply, sequenceID ) ) )
         return true
+
+    lib.IsAudioEnabled = ( ply ) ->
+        return GetInfo( ply, "utaunt_audio" ) == "1"
 
     utaunt_allow_weapon, utaunt_coop_distance, utaunt_collisions = nil, nil, nil
     do
@@ -326,7 +337,7 @@ if SERVER
 
         ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, 0, true )
 
-        if not noSound and ( ply\GetInfo( "utaunt_audio" ) == "1" or ply\IsBot! )
+        if not noSound and ( GetInfo( ply, "utaunt_audio" ) == "1" or ply\IsBot! )
             soundPath = Run( "UnknownTauntSound", ply, sequenceName, cycle, duration, sequenceID )
             if soundPath ~= false
                 if soundPath == nil or soundPath == true
@@ -484,7 +495,13 @@ do
 unless CLIENT
     return
 
-CreateClientConVar( "utaunt_audio", "1", true, true, "Enables playing audio for uTaunts.", 0, 1 )
+do
+
+    utaunt_audio = CreateClientConVar( "utaunt_audio", "1", true, true, "Enables playing audio for uTaunts.", 0, 1 )
+
+    lib.IsAudioEnabled = ->
+        return utaunt_audio\GetBool!
+
 :GetPhrase = language
 
 getPhrase = ( placeholder ) ->
