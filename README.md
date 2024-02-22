@@ -10,14 +10,15 @@ By default addon does not contain animations from Custom Taunt, you can install 
 - **Support** - addon will receive all necessary patches and updates during the year.
 
 ### Commands
-- **utaunts** - *opens/closes UI, as well as stops current sequence if it is running.*
-- **utaunt** - *executes the sequence specified by first argument or stops current sequence if nothing is specified.*
-- **utaunt_list** - *list of all available sequences with real names and durations.*
+- **utaunt** - *executes the sequence specified by first argument or stops current sequence if nothing is specified.* **( SERVER )**
+- **utaunts** - *opens/closes UI, as well as stops current sequence if it is running.* **( CLIENT )**
+- **utaunt_list** - *list of all available sequences with real names and durations.* **( CLIENT )**
 
 ### ConVars
-- **utaunt_coop_distance** - *Minimum required distance to join in a co-op taunt.*
-- **utaunt_allow_weapon** - *Allow players to hold weapons in their hands while taunting.*
-- **utaunt_collisions** - *Allow players to collide with each other while taunting.*
+- **utaunt_allow_weapon** - *Allow players to hold weapons in their hands while taunting.* **( SERVER )**
+- **utaunt_collisions** - *Allow players to collide with each other while taunting.* **( SERVER )**
+- **utaunt_coop_distance** - *Minimum required distance to join in a co-op taunt.* **( SERVER )**
+- **utaunt_audio** - *Enables playing audio for uTaunts.** **( CLIENT )**
 
 ## Where is Lua code?
 Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua code can be found in [releases](https://github.com/PrikolMen/unknown-taunts/releases) and [lua branch](https://github.com/PrikolMen/unknown-taunts/tree/lua), or you can compile it yourself using compiled [Yuescript Compiler](https://github.com/pigpigyyy/Yuescript/releases/latest).
@@ -39,14 +40,21 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - `double` uTaunt.GetStartTime( `Player` ply ) - returns start time point in CurTime as **double**.
 - `float` uTaunt.GetCycle( `Player` ply, `int` sequenceID, `double` startTime ) - retuns sequence progress from 0 to 1 as **float**.
 
+### Client Functions
+- uTaunt.ToggleMenu( `Player` ply ) - toggles uTaunt menu.
+- `string` uTaunt.GetPhrase( `string` placeholder ) - returns localized phrase as **string**.
+
 ### Server Hooks
-- GM:PlayerStartUnknownTaunt( `Player` ply, `string` sequenceName, `double` duration ) - called when a player's taunt was started.
+- GM:PlayerStartedUnknownTaunt( `Player` ply, `string` sequenceName, `double` duration ) - called when a player's taunt was started.
 - GM:PlayerFinishedTaunt( `Player` ply, `string` sequenceName, `boolean` isFinished, `double` timeRemaining, `int` sequenceID, `double` finishTime ) - called when a player's taunt was stopped.
 - GM:PlayerShouldUnknownTaunt( `Player` ply, `int` sequenceID ) - if **false** is returned here, taunt will be blocked, if **true** then allowed.
 - GM:PlayerShouldFinishTaunt( `Player` ply, `string` sequenceName, `boolean` isFinished, `double` timeRemaining, `int` sequenceID, `double` finishTime ) - if return here **false** taunt won't be stopped ( personally, I don't recommend using this, but if you need... ).
 - GM:PlayerTauntThink( `Player` ply, `string` sequenceName, `float` cycle, `int` sequenceID ) - called while a player is taunting, if **false** is returned here, taunt will be stopped.
+- GM:UnknownTauntSound( `Player` ply, `string` sequenceName, `float` cycle, `double` duration, `int` sequenceID ) - called when player starts dancing, if **string** is returned here then sound will be used on string as sound path, if **false** then sound will be blocked, if **true** or **nil** then default action.
 
 ### Client Hooks
 - GM:AllowTauntMenu( `Player` ply ) - if **false** is returned here then taunt menu opening will be blocked.
 - GM:UnknownTauntMenuSetup( `Player` ply, `function` add ) - called when taunt menu is being created, with '**add**' you can add more taunts and categories to that menu `add( "title", sequenceNamesList )`.
 - GM:AllowUnknownTaunt( `Player` ply, `string` sequenceName, `string` categoryTitle ) - taunt filter for a player, if **false** is returned here, taunt will be hidden in the taunt menu.
+- GM:UnknownTauntSynced( `Entity` entity, `string` sequenceName, `float` cycle, `int` sequenceID ) - called when player taunt is being synced.
+- GM:PlayerFinishedTaunt( `Entity` entity, `string` sequenceName ) - called when player is finished taunt.

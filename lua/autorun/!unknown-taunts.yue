@@ -14,6 +14,7 @@ unless istable( lib )
     lib = { Name: addonName }
     global uTaunt = lib
 
+defaultKey = CreateConVar( "utaunt_menu_key", KEY_F7, bit.bor( FCVAR_ARCHIVE, FCVAR_REPLICATED, FCVAR_NOTIFY ), "Default key to open menu of unknown taunts, uses keys from https://wiki.facepunch.com/gmod/Enums/KEY", 0, 512 )
 coopDances = list.GetForEdit( "uTaunt - Coop", false )
 
 timer.Simple 0.5, ->
@@ -32,7 +33,7 @@ timer.Simple 0.5, ->
         for index = 1, value
             coopDances[ sequenceName .. ( danceID + index ) ] = 0
 
-:GetNW2Var, :SetNW2Var, :LookupSequence, :SequenceDuration, :IsValid = ENTITY
+:IsValid, :GetNW2Var, :SetNW2Var, :LookupSequence, :SequenceDuration, :GetSequenceList = ENTITY
 :Add, :Run = hook
 :Alive = PLAYER
 
@@ -57,6 +58,40 @@ getStartTime = ( ply ) ->
 
 lib.GetStartTime = getStartTime
 
+findSound = nil
+do
+
+    sounds = list.GetForEdit( "uTaunt - Sounds", false )
+    supportedExtensions = { "mp3", "wav", "ogg" }
+    :GetTable = sound
+    :Exists = file
+
+    soundExists = ( sequenceName ) ->
+        if Exists( "sound/unknown-taunts/" .. sequenceName, "GAME" )
+            return true
+
+        return false
+
+    lib.SoundExists = soundExists
+
+    findSound = ( sequenceName ) ->
+        sequenceName = lower( sequenceName )
+
+        if sounds[ sequenceName ]
+            return sounds[ sequenceName ]
+
+        for extension in *supportedExtensions
+            extension = sequenceName .. "." .. extension
+            if soundExists( extension )
+                return "unknown-taunts/" .. extension
+
+        sequenceName = "uTaunt." .. sequenceName
+        for soundName in *GetTable!
+            if soundName == sequenceName
+                return soundName
+
+    lib.FindSound = findSound
+
 PLAYER.IsPlayingTaunt = ( ply ) ->
     return isCPlayingTaunt( ply ) or isPlayingTaunt( ply )
 
@@ -73,7 +108,6 @@ do
 do
 
     length, id, duration = 0, 0, 0
-    :GetSequenceList = ENTITY
 
     lib.FindSequences = ( entity, pattern ) ->
         sequences, length = {}, 0
@@ -122,9 +156,14 @@ if SERVER
         SetNW2Var( ply, "uTaunt-start", CurTime! - ( cycle * SequenceDuration( ply, sequenceID ) ) )
         return true
 
-    utaunt_coop_distance = CreateConVar( "utaunt_coop_distance", "256", FCVAR_ARCHIVE, "Minimum required distance to join in a co-op taunt.", 0, 16384 )
-    utaunt_allow_weapon = CreateConVar( "utaunt_allow_weapon", "0", FCVAR_ARCHIVE, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
-    utaunt_collisions = CreateConVar( "utaunt_collisions", "0", FCVAR_ARCHIVE, "Allow players to collide with each other while taunting.", 0, 1 )
+    utaunt_allow_weapon, utaunt_coop_distance, utaunt_collisions = nil, nil, nil
+    do
+
+        flags = bit.bor( FCVAR_ARCHIVE, FCVAR_NOTIFY )
+        utaunt_allow_weapon = CreateConVar( "utaunt_allow_weapon", "0", flags, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
+        utaunt_coop_distance = CreateConVar( "utaunt_coop_distance", "512", flags, "Minimum required distance to join in a co-op taunt.", 0, 16384 )
+        utaunt_collisions = CreateConVar( "utaunt_collisions", "0", flags, "Allow players to collide with each other while taunting.", 0, 1 )
+
     resource.AddWorkshop( "3161527342" )
     :GetModel, :SetCollisionGroup = ENTITY
 
@@ -224,78 +263,87 @@ if SERVER
     Add "PlayerDisconnected", addonName, forcedFinish
     Add "PostPlayerDeath", addonName, forcedFinish
 
-    do
+    lib.Start = ( ply, sequenceName, force, cycle, noSound, startOrigin, startAngles ) ->
+        sequenceID = LookupSequence( ply, sequenceName )
+        if sequenceID < 1
+            return false
 
-        CreateSound = CreateSound
-        :FindInSphere = ents
-        :Exists = file
-
-        lib.Start = ( ply, sequenceName, force, cycle, startOrigin, startAngles ) ->
-            sequenceID = LookupSequence( ply, sequenceName )
-            if sequenceID < 1
+        unless force
+            if Run( "PlayerShouldUnknownTaunt", ply, sequenceID ) ~= true or Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE ) == false
                 return false
 
-            unless force
-                if Run( "PlayerShouldUnknownTaunt", ply, sequenceID ) ~= true or Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE ) == false
-                    return false
+            maxDistance = utaunt_coop_distance\GetInt!
+            if maxDistance > 0
+                for otherPlayer in *ents.FindInSphere( ply\GetPos!, maxDistance )
+                    unless otherPlayer\IsPlayer! and Alive( otherPlayer )
+                        continue
 
-                if isnumber( coopDances[ sequenceName ] ) and coopDances[ sequenceName ] > 0 and utaunt_coop_distance\GetInt! > 0
-                    for otherPlayer in *FindInSphere( ply\GetPos!, utaunt_coop_distance\GetInt! )
-                        if otherPlayer\IsPlayer! and Alive( otherPlayer ) and otherPlayer ~= ply and GetNW2Var( otherPlayer, "uTaunt-name" ) == sequenceName and lib.Join( ply, otherPlayer )
-                            return true
+                    if otherPlayer == ply or GetNW2Var( otherPlayer, "uTaunt-name" ) ~= sequenceName
+                        continue
 
-            duration = SequenceDuration( ply, sequenceID )
-            if duration < 0.25
-                return false
+                    if otherPlayer\GetBonePosition( 0 )\Distance( ply\EyePos! ) > maxDistance
+                        continue
 
-            cSound = ply.m_csUnknownTauntSound
-            if cSound and cSound\IsPlaying!
-                cSound\Stop!
+                    if lib.Join( ply, otherPlayer )
+                        return true
 
-            ply.m_sUnknownTauntModel = GetModel( ply )
+        duration = SequenceDuration( ply, sequenceID )
+        if duration < 0.25
+            return false
 
-            if isvector( startOrigin )
-                ply.m_vUnknownTauntOrigin = ply\GetPos!
-                ply\SetPos( startOrigin )
+        cSound = ply.m_csUnknownTauntSound
+        if cSound and cSound\IsPlaying!
+            cSound\Stop!
 
-            if isangle( startAngles )
-                ply.m_aUnknownTauntAngles = ply\EyeAngles!
-                SetNW2Var( ply, "uTaunt-angles", startAngles )
-                ply\SetEyeAngles( startAngles )
-                ply\SetAngles( startAngles )
+        ply.m_sUnknownTauntModel = GetModel( ply )
 
-            unless utaunt_collisions\GetBool!
-                ply.m_iUnknownTauntCollisionGroup = ply\GetCollisionGroup!
-                ply.m_bUnknownTauntAvoidPlayers = ply\GetAvoidPlayers!
-                ply\SetAvoidPlayers( false )
+        if isvector( startOrigin )
+            ply.m_vUnknownTauntOrigin = ply\GetPos!
+            ply\SetPos( startOrigin )
 
-            unless utaunt_allow_weapon\GetBool!
-                weapon = ply\GetActiveWeapon!
-                if weapon and IsValid( weapon )
-                    ply.m_sUnknownTauntWeapon = weapon\GetClass!
-                    ply\SetActiveWeapon!
+        if isangle( startAngles )
+            ply.m_aUnknownTauntAngles = ply\EyeAngles!
+            SetNW2Var( ply, "uTaunt-angles", startAngles )
+            ply\SetEyeAngles( startAngles )
+            ply\SetAngles( startAngles )
 
-            unless cycle
-                cycle = 0
+        unless utaunt_collisions\GetBool!
+            ply.m_iUnknownTauntCollisionGroup = ply\GetCollisionGroup!
+            ply.m_bUnknownTauntAvoidPlayers = ply\GetAvoidPlayers!
+            ply\SetAvoidPlayers( false )
 
-            SetNW2Var( ply, "uTaunt-start", CurTime! - ( cycle * duration ) )
-            SetNW2Var( ply, "uTaunt-name", sequenceName )
+        unless utaunt_allow_weapon\GetBool!
+            weapon = ply\GetActiveWeapon!
+            if weapon and IsValid( weapon )
+                ply.m_sUnknownTauntWeapon = weapon\GetClass!
+                ply\SetActiveWeapon!
 
-            ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, 0, true )
+        unless cycle
+            cycle = 0
 
-            soundPath = "unknown-taunts/" .. lower( sequenceName ) .. ".mp3"
-            if Exists( "sound/" .. soundPath, "GAME" )
-                cSound = CreateSound( ply, soundPath )
-                ply.m_csUnknownTauntSound = cSound
-                cSound\ChangeVolume( 0, 0 )
-                cSound\SetDSP( 1 )
-                cSound\Play!
+        SetNW2Var( ply, "uTaunt-start", CurTime! - ( cycle * duration ) )
+        SetNW2Var( ply, "uTaunt-name", sequenceName )
 
-                cSound\ChangeVolume( 1, 1 )
+        ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, 0, true )
 
-            Run( "PlayerStartTaunt", ply, ACT_GMOD_TAUNT_DANCE, duration )
-            Run( "PlayerStartUnknownTaunt", ply, sequenceName, duration )
-            return true
+        if not noSound and ( ply\GetInfo( "utaunt_audio" ) == "1" or ply\IsBot! )
+            soundPath = Run( "UnknownTauntSound", ply, sequenceName, cycle, duration, sequenceID )
+            if soundPath ~= false
+                if soundPath == nil or soundPath == true
+                    soundPath = findSound( sequenceName )
+
+                if soundPath
+                    cSound = CreateSound( ply, soundPath )
+                    ply.m_csUnknownTauntSound = cSound
+                    cSound\ChangeVolume( 0, 0 )
+                    cSound\SetDSP( 1 )
+                    cSound\Play!
+
+                    cSound\ChangeVolume( 1, 1 )
+
+        Run( "PlayerStartTaunt", ply, ACT_GMOD_TAUNT_DANCE, duration )
+        Run( "PlayerStartedUnknownTaunt", ply, sequenceName, duration )
+        return true
 
     lib.Join = ( ply, otherPlayer ) ->
         sequenceName = GetNW2Var( otherPlayer, "uTaunt-name" )
@@ -306,8 +354,10 @@ if SERVER
         if sequenceID < 1
             return false
 
-        unless isnumber( coopDances[ sequenceName ] )
-            return lib.Start( ply, sequenceName, true, getCycle( otherPlayer, sequenceID ) )
+        players = otherPlayer.m_tUnknownTauntPlayers
+        if not isnumber( coopDances[ sequenceName ] ) or coopDances[ sequenceName ] < 1
+            players[] = ply
+            return lib.Start( ply, sequenceName, true, getCycle( otherPlayer, sequenceID ), true )
 
         danceName, danceID = match( sequenceName, "^([%a_]+_?)(%d+)$" )
         if danceName == nil or danceID == nil
@@ -317,11 +367,10 @@ if SERVER
         if danceID == nil
             return false
 
-        players = otherPlayer.m_tUnknownTauntPlayers
         for index = 1, coopDances[ sequenceName ]
             if not isValidTauntingPlayer( players[ index ] ) or players[ index ] == ply
                 players[ index ] = ply
-                return lib.Start( ply, danceName .. ( danceID + index ), true, getCycle( otherPlayer, sequenceID ), otherPlayer\GetPos!, otherPlayer\EyeAngles! )
+                return lib.Start( ply, danceName .. ( danceID + index ), true, getCycle( otherPlayer, sequenceID ), true, otherPlayer\GetPos!, otherPlayer\EyeAngles! )
 
         return false
 
@@ -435,71 +484,101 @@ do
 unless CLIENT
     return
 
-getPhrase = nil
-do
+CreateClientConVar( "utaunt_audio", "1", true, true, "Enables playing audio for uTaunts.", 0, 1 )
+:GetPhrase = language
 
-    :GetPhrase = language
+getPhrase = ( placeholder ) ->
+    fulltext = GetPhrase( placeholder )
+    if fulltext == placeholder and sub( placeholder, 1, 15 ) == "unknown_taunts."
+        return GetPhrase( sub( placeholder, 16 ) )
 
-    getPhrase = ( placeholder ) ->
-        fulltext = GetPhrase( placeholder )
-        if fulltext == placeholder and sub( placeholder, 1, 15 ) == "unknown_taunts."
-            return GetPhrase( sub( placeholder, 16 ) )
+    return fulltext
 
-        return fulltext
-
-    lib.GetPhrase = getPhrase
+lib.GetPhrase = getPhrase
 
 do
 
     mins, maxs = Vector( -512, -512, 0 ), Vector( 512, 512, 512 )
 
-    Add "EntityNetworkedVarChanged", addonName, ( entity, key, _, value ) ->
+    Add "UnknownTauntSynced", addonName, ( entity ) ->
+        mins[ 3 ] = entity\GetModelRenderBounds![ 3 ]
+        entity\SetRenderBounds( mins, maxs )
+
+Add "PlayerFinishedTaunt", addonName, ( entity ) ->
+    entity\SetRenderBounds( entity\GetModelRenderBounds! )
+
+do
+
+    cycle = 0
+
+    Add "EntityNetworkedVarChanged", addonName, ( entity, key, oldValue, value ) ->
         unless IsValid( entity ) and entity\IsPlayer! and Alive( entity )
             return
 
         if key == "uTaunt-name"
             if value == nil
-                entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
-                entity\SetRenderBounds( entity\GetModelRenderBounds! )
+                if entity.m_bUsingUnknownTaunt
+                    entity.m_bUsingUnknownTaunt = false
+                    entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
+                    Run( "PlayerFinishedTaunt", entity, oldValue )
+
                 return
 
             sequenceID = LookupSequence( entity, value )
             if sequenceID < 1
                 return
 
-            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, getCycle( entity, sequenceID ), true )
-            mins[ 3 ] = entity\GetModelRenderBounds![ 3 ]
-            entity\SetRenderBounds( mins, maxs )
+            entity.m_bUsingUnknownTaunt = true
+
+            cycle = getCycle( entity, sequenceID )
+            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
+            Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID )
             return
 
         if key == "uTaunt-start"
             sequenceName = GetNW2Var( entity, "uTaunt-name" )
             if sequenceName == nil
+                if entity.m_bUsingUnknownTaunt
+                    entity.m_bUsingUnknownTaunt = false
+                    entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
+                    Run( "PlayerFinishedTaunt", entity, oldValue )
+
                 return
 
             sequenceID = LookupSequence( entity, sequenceName )
             if sequenceID < 1
                 return
 
-            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, getCycle( entity, sequenceID, value ), true )
-            mins[ 3 ] = entity\GetModelRenderBounds![ 3 ]
-            entity\SetRenderBounds( mins, maxs )
+            entity.m_bUsingUnknownTaunt = true
+
+            cycle = getCycle( entity, sequenceID, value )
+            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
+            Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID )
             return
 
-Add "NotifyShouldTransmit", addonName, ( entity, shouldtransmit ) ->
-    unless shouldtransmit and IsValid( entity ) and entity\IsPlayer! and Alive( entity )
-        return
+    Add "NotifyShouldTransmit", addonName, ( entity, shouldtransmit ) ->
+        unless shouldtransmit and IsValid( entity ) and entity\IsPlayer! and Alive( entity )
+            return
 
-    sequenceName = GetNW2Var( entity, "uTaunt-name" )
-    if sequenceName == nil
-        return
+        sequenceName = GetNW2Var( entity, "uTaunt-name" )
+        if sequenceName == nil
+            if entity.m_bUsingUnknownTaunt
+                entity.m_bUsingUnknownTaunt = false
+                entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
+                Run( "PlayerFinishedTaunt", entity, oldValue )
 
-    sequenceID = LookupSequence( entity, sequenceName )
-    if sequenceID < 1
-        return
+            return
 
-    entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, getCycle( entity, sequenceID ), true )
-    return
+        sequenceID = LookupSequence( entity, sequenceName )
+        if sequenceID < 1
+            return
+
+        entity.m_bUsingUnknownTaunt = true
+
+        cycle = getCycle( entity, sequenceID )
+        entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
+        Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID )
+        return
 
 lib.ToggleMenu = ( ply ) ->
     if ply\IsCPlayingTaunt!
@@ -526,13 +605,13 @@ concommand.Add "utaunts", lib.ToggleMenu
 do
 
     IsFirstTimePredicted = IsFirstTimePredicted
-    KEY_F7, KEY_SPACE = KEY_F7, KEY_SPACE
+    KEY_SPACE = KEY_SPACE
 
     Add "PlayerButtonDown", addonName, ( ply, keyCode ) ->
         unless IsFirstTimePredicted!
             return
 
-        if keyCode == KEY_F7
+        if keyCode == defaultKey\GetInt!
             bind = input.LookupKeyBinding( keyCode )
             if bind and #bind ~= 0
                 return
