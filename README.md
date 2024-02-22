@@ -12,6 +12,7 @@ By default addon does not contain animations from Custom Taunt, you can install 
 ### Commands
 - **utaunts** - *opens/closes UI, as well as stops current sequence if it is running.*
 - **utaunt** - *executes the sequence specified by first argument or stops current sequence if nothing is specified.*
+- **utaunt_list** - *list of all available sequences with real names and durations.*
 
 ### ConVars
 - **utaunt_coop_distance** - *Minimum required distance to join in a co-op taunt.*

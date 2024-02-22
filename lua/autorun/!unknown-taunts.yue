@@ -697,3 +697,41 @@ do
             DrawRect( 0, 0, width, height )
 
     vgui.Register( "uTaunt::Menu", PANEL, "DFrame" )
+
+do
+
+    HSVToColor = HSVToColor
+    CurTime = CurTime
+    :Round = math
+    MsgC = MsgC
+
+    concommand.Add "utaunt_list", ( ply ) ->
+        modelSequences = GetSequenceList( ply )
+        sequences, count = {}, 0
+
+        for index = 1, #modelSequences
+            sequenceName = modelSequences[ index ]
+            if Run( "AllowUnknownTaunt", ply, sequenceName, "Sequences" ) == false
+                continue
+
+            placeholder = "unknown_taunts." .. sequenceName
+            fulltext = GetPhrase( placeholder )
+            if fulltext == placeholder
+                continue
+
+            count += 1
+
+            duration = SequenceDuration( ply, index )
+            if duration > 60
+                sequences[ count ] = sequenceName .. " (" .. Round( duration / 60, 1 ) .. " minutes) - " .. fulltext
+                continue
+
+            sequences[ count ] = sequenceName .. " (" .. Round( duration, 2 ) .. " seconds) - " .. fulltext
+
+        if count == 0
+            MsgC( "No sequences found.\n" )
+            return
+
+        MsgC( "Sequences:\n" )
+        for index = 1, count
+            MsgC( index .. ". ", HSVToColor( ( 180 + index ) % 360, 1, 1 ), sequences[ index ], "\n" )
