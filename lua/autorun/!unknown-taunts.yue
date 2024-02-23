@@ -39,7 +39,6 @@ timer.Simple 0.5, ->
 
 ACT_GMOD_TAUNT_DANCE = ACT_GMOD_TAUNT_DANCE
 GESTURE_SLOT_CUSTOM = GESTURE_SLOT_CUSTOM
-IN_JUMP = IN_JUMP
 
 isCPlayingTaunt = PLAYER.IsCPlayingTaunt
 unless isCPlayingTaunt
@@ -491,12 +490,6 @@ if SERVER
 
     PRE_HOOK_RETURN )
 
-    Add( "StartCommand", addonName, ( ply, cmd ) ->
-        if ply.m_dLastUnknownTaunt ~= nil and ( CurTime! - ply.m_dLastUnknownTaunt ) < 0.25 and cmd\KeyDown( IN_JUMP )
-            cmd\RemoveKey( IN_JUMP )
-
-    PRE_HOOK )
-
 Add( "PlayerSwitchWeapon", addonName, ( ply ) ->
     if isPlayingTaunt( ply )
         return true
@@ -517,6 +510,17 @@ do
 
             SetRenderAngles( ply, angles )
             return
+
+    PRE_HOOK )
+
+do
+
+    :KeyDown, :RemoveKey = FindMetaTable( "CUserCmd" )
+    IN_JUMP = IN_JUMP
+
+    Add( "StartCommand", addonName, ( ply, cmd ) ->
+        if ply.m_dLastUnknownTaunt ~= nil and ( CurTime! - ply.m_dLastUnknownTaunt ) < 0.25 and KeyDown( cmd, IN_JUMP )
+            RemoveKey( cmd, IN_JUMP )
 
     PRE_HOOK )
 
@@ -635,14 +639,6 @@ do
 
     PRE_HOOK )
 
-Add( "StartCommand", addonName, ( ply, cmd ) ->
-    if ply.m_dLastUnknownTaunt ~= nil and ( CurTime! - ply.m_dLastUnknownTaunt ) < 0.25 and cmd\KeyDown( IN_JUMP )
-        cmd\RemoveKey( IN_JUMP )
-        if ply == LocalPlayer!
-            RunConsoleCommand( "utaunt" )
-
-PRE_HOOK )
-
 toggleMenu = ( ply ) ->
     if ply\IsCPlayingTaunt!
         return
@@ -670,12 +666,21 @@ do
 
     IsFirstTimePredicted = IsFirstTimePredicted
     :LookupKeyBinding = input
+    KEY_SPACE = KEY_SPACE
 
     Add( "PlayerButtonDown", addonName, ( ply, keyCode ) ->
-        if keyCode == defaultKey\GetInt! and IsFirstTimePredicted!
+        unless IsFirstTimePredicted!
+            return
+
+        if keyCode == defaultKey\GetInt!
             bind = LookupKeyBinding( keyCode )
             if bind == nil or bind == "utaunts" or #bind == 0
                 toggleMenu( ply )
+                return
+
+        elseif keyCode == KEY_SPACE and isPlayingTaunt( ply )
+            RunConsoleCommand( "utaunt" )
+            return
 
     PRE_HOOK )
 
