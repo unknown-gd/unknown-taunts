@@ -14,7 +14,7 @@ unless istable( lib )
     lib = { Name: addonName }
     global uTaunt = lib
 
-defaultKey = CreateConVar( "utaunt_menu_key", KEY_F7, bit.bor( FCVAR_ARCHIVE, FCVAR_REPLICATED, FCVAR_NOTIFY ), "Default key to open menu of unknown taunts, uses keys from https://wiki.facepunch.com/gmod/Enums/KEY", 0, 512 )
+defaultKey = CreateConVar( "utaunt_menu_key", KEY_I, bit.bor( FCVAR_ARCHIVE, FCVAR_REPLICATED, FCVAR_NOTIFY ), "Default key to open menu of unknown taunts, uses keys from https://wiki.facepunch.com/gmod/Enums/KEY", 0, 512 )
 coopDances = list.GetForEdit( "uTaunt - Coop", false )
 
 timer.Simple 0.5, ->
@@ -39,6 +39,7 @@ timer.Simple 0.5, ->
 
 ACT_GMOD_TAUNT_DANCE = ACT_GMOD_TAUNT_DANCE
 GESTURE_SLOT_CUSTOM = GESTURE_SLOT_CUSTOM
+IN_JUMP = IN_JUMP
 
 isCPlayingTaunt = PLAYER.IsCPlayingTaunt
 unless isCPlayingTaunt
@@ -178,8 +179,9 @@ if SERVER
     resource.AddWorkshop( "3161527342" )
     :GetModel, :SetCollisionGroup = ENTITY
 
-    Add "PlayerInitialSpawn", addonName, ( ply ) ->
+    Add( "PlayerInitialSpawn", addonName, ( ply ) ->
         ply.m_tUnknownTauntPlayers = {}
+    PRE_HOOK )
 
     finish = nil
     do
@@ -271,8 +273,8 @@ if SERVER
         finish( ply, true )
         return
 
-    Add "PlayerDisconnected", addonName, forcedFinish
-    Add "PostPlayerDeath", addonName, forcedFinish
+    Add "PlayerDisconnected", addonName, forcedFinish, PRE_HOOK
+    Add "PostPlayerDeath", addonName, forcedFinish, PRE_HOOK
 
     lib.Start = ( ply, sequenceName, force, cycle, noSound, startOrigin, startAngles ) ->
         sequenceID = LookupSequence( ply, sequenceName )
@@ -391,7 +393,7 @@ if SERVER
         :GetCollisionGroup = ENTITY
         sequenceID = 0
 
-        Add "PlayerPostThink", addonName, ( ply ) ->
+        Add( "PlayerPostThink", addonName, ( ply ) ->
             sequenceName = GetNW2Var( ply, "uTaunt-name" )
             if sequenceName == nil
                 return
@@ -423,6 +425,8 @@ if SERVER
             SetCollisionGroup( ply, COLLISION_GROUP_PASSABLE_DOOR )
             return
 
+        PRE_HOOK )
+
     concommand.Add "utaunt", ( ply, _, args ) ->
         unless ply and IsValid( ply ) and Alive( ply )
             return
@@ -438,9 +442,11 @@ if SERVER
             lib.Start( ply, args[ 1 ], false )
             return
 
-    Add "PlayerShouldTaunt", addonName, =>
+    Add( "PlayerShouldTaunt", addonName, =>
         if isPlayingTaunt( @ )
             return false
+
+    PRE_HOOK_RETURN )
 
     allowedActs = {
         [ ACT_GMOD_TAUNT_DANCE ]: true
@@ -471,26 +477,40 @@ if SERVER
         [ ACT_SIGNAL_HALT ]: true
     }
 
-    Add "PlayerShouldUnknownTaunt", "Garry's Mod", ( ply, sequenceID ) ->
+    Add( "PlayerShouldUnknownTaunt", "Garry's Mod", ( ply, sequenceID ) ->
         if allowedActs[ ply\GetSequenceActivity( sequenceID ) ]
             return true
 
-Add "PlayerSwitchWeapon", addonName, =>
-    if @IsPlayingTaunt!
+    PRE_HOOK_RETURN )
+
+    Add( "StartCommand", addonName, ( ply, cmd ) ->
+        if ply.m_dLastUnknownTaunt ~= nil and ( CurTime! - ply.m_dLastUnknownTaunt ) < 0.25 and cmd\KeyDown( IN_JUMP )
+            cmd\RemoveKey( IN_JUMP )
+
+    PRE_HOOK )
+
+Add( "PlayerSwitchWeapon", addonName, ( ply ) ->
+    if isPlayingTaunt( ply )
         return true
+
+PRE_HOOK_RETURN )
 
 do
 
     :SetRenderAngles = PLAYER
 
-    Add "UpdateAnimation", addonName, ( ply ) ->
+    Add( "UpdateAnimation", addonName, ( ply ) ->
         if isPlayingTaunt( ply )
+            ply.m_dLastUnknownTaunt = CurTime!
+
             angles = GetNW2Var( ply, "uTaunt-angles" )
             if angles == nil
                 return
 
             SetRenderAngles( ply, angles )
             return
+
+    PRE_HOOK )
 
 unless CLIENT
     return
@@ -502,6 +522,8 @@ do
     lib.IsAudioEnabled = ->
         return utaunt_audio\GetBool!
 
+RunConsoleCommand = RunConsoleCommand
+LocalPlayer = LocalPlayer
 :GetPhrase = language
 
 getPhrase = ( placeholder ) ->
@@ -517,18 +539,22 @@ do
 
     mins, maxs = Vector( -512, -512, 0 ), Vector( 512, 512, 512 )
 
-    Add "UnknownTauntSynced", addonName, ( entity ) ->
+    Add( "UnknownTauntSynced", addonName, ( entity ) ->
         mins[ 3 ] = entity\GetModelRenderBounds![ 3 ]
         entity\SetRenderBounds( mins, maxs )
+        return
+    PRE_HOOK )
 
-Add "PlayerFinishedTaunt", addonName, ( entity ) ->
+Add( "PlayerFinishedTaunt", addonName, ( entity ) ->
     entity\SetRenderBounds( entity\GetModelRenderBounds! )
+    return
+PRE_HOOK )
 
 do
 
     cycle = 0
 
-    Add "EntityNetworkedVarChanged", addonName, ( entity, key, oldValue, value ) ->
+    Add( "EntityNetworkedVarChanged", addonName, ( entity, key, oldValue, value ) ->
         unless IsValid( entity ) and entity\IsPlayer! and Alive( entity )
             return
 
@@ -549,7 +575,7 @@ do
 
             cycle = getCycle( entity, sequenceID )
             entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
-            Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID )
+            Run( "UnknownTauntSynced", entity, value, cycle, sequenceID )
             return
 
         if key == "uTaunt-start"
@@ -573,7 +599,9 @@ do
             Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID )
             return
 
-    Add "NotifyShouldTransmit", addonName, ( entity, shouldtransmit ) ->
+    PRE_HOOK )
+
+    Add( "NotifyShouldTransmit", addonName, ( entity, shouldtransmit ) ->
         unless shouldtransmit and IsValid( entity ) and entity\IsPlayer! and Alive( entity )
             return
 
@@ -597,7 +625,17 @@ do
         Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID )
         return
 
-lib.ToggleMenu = ( ply ) ->
+    PRE_HOOK )
+
+Add( "StartCommand", addonName, ( ply, cmd ) ->
+    if ply.m_dLastUnknownTaunt ~= nil and ( CurTime! - ply.m_dLastUnknownTaunt ) < 0.25 and cmd\KeyDown( IN_JUMP )
+        cmd\RemoveKey( IN_JUMP )
+        if ply == LocalPlayer!
+            RunConsoleCommand( "utaunt" )
+
+PRE_HOOK )
+
+toggleMenu = ( ply ) ->
     if ply\IsCPlayingTaunt!
         return
 
@@ -617,36 +655,28 @@ lib.ToggleMenu = ( ply ) ->
     lib.Panel = panel
     panel\Setup( ply )
 
-concommand.Add "utaunts", lib.ToggleMenu
+lib.ToggleMenu = toggleMenu
+concommand.Add "utaunts", toggleMenu
 
 do
 
     IsFirstTimePredicted = IsFirstTimePredicted
-    KEY_SPACE = KEY_SPACE
+    :LookupKeyBinding = input
 
-    Add "PlayerButtonDown", addonName, ( ply, keyCode ) ->
-        unless IsFirstTimePredicted!
-            return
+    Add( "PlayerButtonDown", addonName, ( ply, keyCode ) ->
+        if keyCode == defaultKey\GetInt! and IsFirstTimePredicted!
+            bind = LookupKeyBinding( keyCode )
+            if bind == nil or bind == "utaunts" or #bind == 0
+                toggleMenu( ply )
 
-        if keyCode == defaultKey\GetInt!
-            bind = input.LookupKeyBinding( keyCode )
-            if bind and #bind ~= 0
-                return
-
-            lib.ToggleMenu( ply )
-            return
-
-        if keyCode == KEY_SPACE and isPlayingTaunt( ply )
-            RunConsoleCommand( "utaunt" )
-            return
+    PRE_HOOK )
 
 do
 
     commmands = { "taunt", "dance", "utaunt", "udance" }
     allowedChars = { "/": true, "!": true }
-    LocalPlayer = LocalPlayer
 
-    Add "OnPlayerChat", addonName, ( ply, text, isTeam, isDead ) ->
+    Add( "OnPlayerChat", addonName, ( ply, text, isTeam, isDead ) ->
         if isDead or isTeam or ply ~= LocalPlayer!
             return
 
@@ -659,8 +689,10 @@ do
 
         for command in *commmands
             if find( text, command, 1, false ) ~= nil
-                lib.ToggleMenu( ply )
+                toggleMenu( ply )
                 return true
+
+    PRE_HOOK_RETURN )
 
 -- Garry's Mod
 do
@@ -797,7 +829,6 @@ do
 do
 
     HSVToColor = HSVToColor
-    CurTime = CurTime
     :Round = math
     MsgC = MsgC
 
