@@ -168,10 +168,11 @@ if SERVER
     lib.IsAudioEnabled = ( ply ) ->
         return GetInfo( ply, "utaunt_audio" ) == "1"
 
-    utaunt_allow_weapon, utaunt_coop_distance, utaunt_collisions = nil, nil, nil
+    utaunt_real_origin, utaunt_allow_weapon, utaunt_coop_distance, utaunt_collisions = nil, nil, nil, nil
     do
 
         flags = bit.bor( FCVAR_ARCHIVE, FCVAR_NOTIFY )
+        utaunt_real_origin = CreateConVar( "utaunt_real_origin", "0", flags, "Uses the player's real position instead of initial position at the end of taunt.", 0, 1 )
         utaunt_allow_weapon = CreateConVar( "utaunt_allow_weapon", "0", flags, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
         utaunt_coop_distance = CreateConVar( "utaunt_coop_distance", "512", flags, "Minimum required distance to join in a co-op taunt.", 0, 16384 )
         utaunt_collisions = CreateConVar( "utaunt_collisions", "0", flags, "Allow players to collide with each other while taunting.", 0, 1 )
@@ -208,9 +209,31 @@ if SERVER
             if not force and Run( "PlayerShouldFinishTaunt", ply, sequenceName, finishTime < curTime, timeRemaining, sequenceID, finishTime ) == false
                 return false
 
+            -- Origin
+            origin = ply.m_vUnknownTauntOrigin
+            if utaunt_real_origin\GetBool!
+                leftFoot, rightFoot = ply\LookupBone( "ValveBiped.Bip01_L_Foot" ), ply\LookupBone( "ValveBiped.Bip01_R_Foot" )
+                if leftFoot > 0 and rightFoot > 0
+                    origin = ( ply\GetBonePosition( leftFoot ) + ply\GetBonePosition( rightFoot ) ) / 2
+                else
+                    origin = ply\GetBonePosition( 0 )
+
+            if isvector( origin )
+                ply\SetPos( origin )
+
+            ply.m_vUnknownTauntOrigin = nil
+
             ply\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
-            SetNW2Var( ply, "uTaunt-angles", nil )
             SetNW2Var( ply, "uTaunt-name", nil )
+
+            -- Angles
+            angles = GetNW2Var( ply, "uTaunt-angles", ply.m_aUnknownTauntAngles )
+            if isangle( angles )
+                ply\SetEyeAngles( angles )
+                ply\SetAngles( angles )
+
+            SetNW2Var( ply, "uTaunt-angles", nil )
+            ply.m_aUnknownTauntAngles = nil
 
             -- Coop players
             players = ply.m_tUnknownTauntPlayers
@@ -241,21 +264,6 @@ if SERVER
                 ply\SelectWeapon( className )
 
             ply.m_sUnknownTauntWeapon = nil
-
-            -- Origin
-            origin = ply.m_vUnknownTauntOrigin
-            if isvector( origin )
-                ply\SetPos( origin )
-
-            ply.m_vUnknownTauntOrigin = nil
-
-            -- Angles
-            angles = ply.m_aUnknownTauntAngles
-            if isangle( angles )
-                ply\SetEyeAngles( angles )
-                ply\SetAngles( angles )
-
-            ply.m_aUnknownTauntAngles = nil
 
             -- Sound/Music
             cSound = ply.m_csUnknownTauntSound
