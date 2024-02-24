@@ -484,11 +484,9 @@ if SERVER
         [ ACT_SIGNAL_HALT ]: true
     }
 
-    Add( "PlayerShouldUnknownTaunt", "Garry's Mod", ( ply, sequenceID ) ->
+    Add "PlayerShouldUnknownTaunt", "Garry's Mod", ( ply, sequenceID ) ->
         if allowedActs[ ply\GetSequenceActivity( sequenceID ) ]
             return true
-
-    PRE_HOOK_RETURN )
 
 Add( "PlayerSwitchWeapon", addonName, ( ply ) ->
     if isPlayingTaunt( ply )
