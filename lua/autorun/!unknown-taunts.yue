@@ -398,6 +398,7 @@ if SERVER
 
         COLLISION_GROUP_PASSABLE_DOOR = COLLISION_GROUP_PASSABLE_DOOR
         :GetCollisionGroup = ENTITY
+        :Crouching = PLAYER
         sequenceID = 0
 
         Add( "PlayerPostThink", addonName, ( ply ) ->
@@ -405,7 +406,7 @@ if SERVER
             if sequenceName == nil
                 return
 
-            unless Alive( ply )
+            if not Alive( ply ) or Crouching( ply )
                 forcedFinish( ply )
                 return
 
@@ -514,11 +515,15 @@ do
 do
 
     :KeyDown, :RemoveKey = FindMetaTable( "CUserCmd" )
-    IN_JUMP = IN_JUMP
+    IN_JUMP, IN_DUCK = IN_JUMP, IN_DUCK
 
     Add( "StartCommand", addonName, ( ply, cmd ) ->
-        if ply.m_dLastUnknownTaunt ~= nil and ( CurTime! - ply.m_dLastUnknownTaunt ) < 0.25 and KeyDown( cmd, IN_JUMP )
-            RemoveKey( cmd, IN_JUMP )
+        if ply.m_dLastUnknownTaunt ~= nil and ( CurTime! - ply.m_dLastUnknownTaunt ) < 0.25
+            if KeyDown( cmd, IN_JUMP )
+                RemoveKey( cmd, IN_JUMP )
+
+            if KeyDown( cmd, IN_DUCK )
+                RemoveKey( cmd, IN_DUCK )
 
     PRE_HOOK )
 
