@@ -286,7 +286,7 @@ if SERVER
             return false
 
         unless force
-            if Run( "PlayerShouldUnknownTaunt", ply, sequenceID ) ~= true or Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE ) == false
+            if Run( "PlayerShouldUnknownTaunt", ply, sequenceID ) ~= true or ( not isPlayingTaunt( ply ) and Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE ) == false )
                 return false
 
             maxDistance = utaunt_coop_distance\GetInt!
@@ -433,19 +433,16 @@ if SERVER
         PRE_HOOK )
 
     concommand.Add "utaunt", ( ply, _, args ) ->
-        unless ply and IsValid( ply ) and Alive( ply )
-            return
-
-        if isPlayingTaunt( ply )
-            lib.Finish( ply, false )
-            return
-
-        if ply\IsCPlayingTaunt!
+        if not ( ply and IsValid( ply ) and Alive( ply ) ) or ply\IsCPlayingTaunt!
             return
 
         if isstring( args[ 1 ] )
             lib.Start( ply, args[ 1 ], false )
             return
+
+    concommand.Add "utaunt_stop", ( ply ) ->
+        if isPlayingTaunt( ply )
+            lib.Finish( ply, false )
 
     Add( "PlayerShouldTaunt", addonName, =>
         if isPlayingTaunt( @ )
@@ -651,10 +648,6 @@ toggleMenu = ( ply ) ->
     if ply\IsCPlayingTaunt!
         return
 
-    if isPlayingTaunt( ply )
-        RunConsoleCommand( "utaunt" )
-        return
-
     panel = lib.Panel
     if panel and panel\IsValid!
         panel\Remove!
@@ -687,7 +680,7 @@ do
                 return
 
         elseif keyCode == KEY_SPACE and isPlayingTaunt( ply )
-            RunConsoleCommand( "utaunt" )
+            RunConsoleCommand( "utaunt_stop" )
             return
 
     PRE_HOOK )
@@ -764,6 +757,9 @@ do
 
 do
 
+    :DrawRect, :SetDrawColor = surface
+    :floor, :Round = math
+
     PANEL = {}
 
     PANEL.Init = =>
@@ -785,6 +781,144 @@ do
                 canvas\DockPadding( margin, 0, margin, margin )
 
             DScrollPanel.PerformLayout( scrollPanel, width, height )
+
+        actions = scrollPanel\Add( "EditablePanel" )
+        actions.Progress = 0
+        actions\Dock( TOP )
+
+        actions.PerformLayout = ->
+            actions\SetTall( 32 )
+
+        actions.Think = ->
+            sequenceName = GetNW2Var( ply, "uTaunt-name" )
+            if sequenceName == nil
+                actions.Progress = 0
+                return
+
+            sequenceID = LookupSequence( ply, sequenceName )
+            if sequenceID < 1
+                actions.Progress = 0
+                return
+
+            actions.Progress = getCycle( ply, sequenceID )
+
+        actions.Paint = ( _, width, height ) ->
+            SetDrawColor( 150, 255, 50, 220 )
+            DrawRect( 0, height - 2, width * actions.Progress, 2 )
+
+        do
+
+            button = actions\Add( "DButton" )
+            button\SetText( "" )
+            button\SetWide( 32 )
+            button\Dock( RIGHT )
+            button.Paint = ->
+
+            button.UpdateIcon = ( state ) ->
+                button\SetImage( state and "icon16/sound.png" or "icon16/sound_mute.png" )
+
+            button.UpdateIcon( cvars.Bool( "utaunt_audio" ) )
+
+            button.DoClick = ->
+                if cvars.Bool( "utaunt_audio" )
+                    RunConsoleCommand( "utaunt_audio", "0" )
+                    button.UpdateIcon( false )
+                else
+                    RunConsoleCommand( "utaunt_audio", "1" )
+                    button.UpdateIcon( true )
+
+        do
+
+            button = actions\Add( "DButton" )
+            button\SetText( "" )
+            button\SetWide( 32 )
+            button\Dock( RIGHT )
+            button.Paint = ->
+
+            button.UpdateIcon = ( state ) ->
+                button\SetImage( state and "icon16/control_repeat_blue.png" or "icon16/control_repeat.png" )
+
+            button.UpdateIcon( cvars.Bool( "utaunt_loop" ) )
+
+            button.DoClick = ->
+                if cvars.Bool( "utaunt_loop" )
+                    RunConsoleCommand( "utaunt_loop", "0" )
+                    button.UpdateIcon( false )
+                else
+                    RunConsoleCommand( "utaunt_loop", "1" )
+                    button.UpdateIcon( true )
+
+        do
+
+            button = actions\Add( "DButton" )
+            button\SetText( "" )
+            button\SetWide( 32 )
+            button\Dock( RIGHT )
+            button.Paint = ->
+
+            button.Think = ->
+                state = isPlayingTaunt( ply )
+                if button.State ~= state
+                    button.State = state
+
+                    if state
+                        button\SetImage( "icon16/control_stop_blue.png" )
+                    else
+                        button\SetImage( "icon16/control_stop.png" )
+
+            button.DoClick = ->
+                if isPlayingTaunt( ply )
+                    RunConsoleCommand( "utaunt_stop" )
+
+        do
+
+            label = actions\Add( "DLabel" )
+            label.SequenceName = ""
+            label\Dock( FILL )
+
+            label.Think = ->
+                unless isPlayingTaunt( ply )
+                    if label.SequenceName ~= nil
+                        label.SequenceName = nil
+                        label\SetText( "#unknown_taunts.menu.none" )
+
+                    return
+
+                sequenceName = GetNW2Var( ply, "uTaunt-name" )
+                if sequenceName == nil
+                    if label.SequenceName ~= nil
+                        label.SequenceName = nil
+                        label\SetText( "#unknown_taunts.menu.none" )
+
+                    return
+
+                sequenceID = LookupSequence( ply, sequenceName )
+                if sequenceID < 1
+                    if label.SequenceName ~= nil
+                        label.SequenceName = nil
+                        label\SetText( "#unknown_taunts.menu.none" )
+
+                    return
+
+                if label.SequenceName ~= sequenceName
+                    label.SequenceName = sequenceName
+                    label.SequenceTitle = getPhrase( "unknown_taunts." .. sequenceName )
+
+                duration = SequenceDuration( ply, sequenceID )
+                timeRemaining = duration * getCycle( ply, sequenceID )
+                if timeRemaining > 60
+                    timeRemaining = Round( timeRemaining / 60, 1 ) .. "m"
+                else
+                    timeRemaining = floor( timeRemaining ) .. "s"
+
+                if duration > 60
+                    duration = Round( duration / 60, 1 ) .. "m"
+                else
+                    duration = floor( duration ) .. "s"
+
+                str = label.SequenceTitle .. " ( " .. timeRemaining .. " / " .. duration .. " )"
+                if str ~= label\GetText!
+                    label\SetText( str )
 
         Run "UnknownTauntMenuSetup", ply, ( title, sequences ) ->
             if not istable( sequences )
@@ -815,8 +949,9 @@ do
                 combo\Dock( TOP )
 
                 combo.OnSelect = ( _, __, ___, name ) ->
+                    combo\SetText( "#unknown_taunts.menu.select" )
                     RunConsoleCommand( "utaunt", name )
-                    @Close!
+                    -- @Close!
 
             for index = 1, length
                 if sequences[ index ] ~= false
@@ -830,20 +965,16 @@ do
                 height += pnl\GetTall!
 
             if height == 0
-                @Close!
+                @Remove!
                 return
 
             @SetTall( math.min( height + 48, ScrH! * 0.5 ) )
 
         DFrame.PerformLayout( @, width, height )
 
-    do
-
-        :DrawRect, :SetDrawColor = surface
-
-        PANEL.Paint = ( width, height ) =>
-            SetDrawColor( 50, 50, 50, 220 )
-            DrawRect( 0, 0, width, height )
+    PANEL.Paint = ( width, height ) =>
+        SetDrawColor( 50, 50, 50, 220 )
+        DrawRect( 0, 0, width, height )
 
     vgui.Register( "uTaunt::Menu", PANEL, "DFrame" )
 
