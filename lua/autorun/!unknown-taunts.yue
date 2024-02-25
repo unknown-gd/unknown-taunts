@@ -183,13 +183,12 @@ if SERVER
         ply.m_tUnknownTauntPlayers = {}
     PRE_HOOK )
 
-    finish = nil
     do
 
         sequenceName, sequenceID, curTime, finishTime, timeRemaining = "", 0, 0, 0, 0
         isbool = isbool
 
-        finish = ( ply, force ) ->
+        lib.Finish = ( ply, force ) ->
             sequenceName = GetNW2Var( ply, "uTaunt-name" )
             if sequenceName == nil
                 return false
@@ -241,7 +240,7 @@ if SERVER
                 players[ index ] = nil
 
                 if isValidTauntingPlayer( otherPlayer )
-                    finish( otherPlayer, force )
+                    lib.Finish( otherPlayer, force )
 
             -- Collision group
             collisionGroup = ply.m_iUnknownTauntCollisionGroup
@@ -274,10 +273,8 @@ if SERVER
             Run( "PlayerFinishedTaunt", ply, sequenceName, finishTime < curTime, timeRemaining, sequenceID, finishTime )
             return true
 
-        lib.Finish = finish
-
     forcedFinish = ( ply ) ->
-        finish( ply, true )
+        lib.Finish( ply, true )
         return
 
     Add "PlayerDisconnected", addonName, forcedFinish, PRE_HOOK
@@ -421,7 +418,7 @@ if SERVER
 
             cycle = getCycle( ply, sequenceID )
             if Run( "PlayerTauntThink", ply, sequenceName, cycle, sequenceID ) == false or cycle == 1
-                finish( ply, false )
+                lib.Finish( ply, false )
                 return
 
             if utaunt_collisions\GetBool!
@@ -440,7 +437,7 @@ if SERVER
             return
 
         if isPlayingTaunt( ply )
-            finish( ply, false )
+            lib.Finish( ply, false )
             return
 
         if ply\IsCPlayingTaunt!
@@ -489,6 +486,12 @@ if SERVER
         if allowedActs[ ply\GetSequenceActivity( sequenceID ) ]
             return true
 
+    Add( "PlayerFinishedTaunt", addonName, ( ply, sequenceName, isFinished ) ->
+        if isFinished and GetInfo( ply, "utaunt_loop" ) == "1"
+            lib.Start( ply, sequenceName, false )
+
+    PRE_HOOK )
+
 Add( "PlayerSwitchWeapon", addonName, ( ply ) ->
     if isPlayingTaunt( ply )
         return true
@@ -529,6 +532,8 @@ do
 
 unless CLIENT
     return
+
+CreateClientConVar( "utaunt_loop", "0", true, true, "Enables looping for all uTaunts.", 0, 1 )
 
 do
 
@@ -878,3 +883,16 @@ do
         MsgC( "Sequences:\n" )
         for index = 1, count
             MsgC( index .. ". ", HSVToColor( ( 180 + index ) % 360, 1, 1 ), sequences[ index ], "\n" )
+
+list.Set "DesktopWindows", "utaunt-menu", {
+    title: "uTaunt"
+    icon: "icon16/color_swatch.png"
+    init: ( icon, window ) ->
+        if window and window\IsValid!
+            window\Remove!
+
+        icon.DoClick = ->
+            RunConsoleCommand( "utaunts" )
+
+        RunConsoleCommand( "utaunts" )
+}
