@@ -279,6 +279,7 @@ if SERVER
 
     Add "PlayerDisconnected", addonName, forcedFinish, PRE_HOOK
     Add "PostPlayerDeath", addonName, forcedFinish, PRE_HOOK
+    Add "PlayerSpawn", addonName, forcedFinish, PRE_HOOK
 
     lib.Start = ( ply, sequenceName, force, cycle, noSound, startOrigin, startAngles ) ->
         sequenceID = LookupSequence( ply, sequenceName )
