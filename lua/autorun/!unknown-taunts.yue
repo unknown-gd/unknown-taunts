@@ -7,6 +7,13 @@ isangle = isangle
 istable = istable
 CurTime = CurTime
 
+-- ULib support ( I really don't like this )
+if file.Exists( "ulib/shared/hook.lua", "LUA" )
+    include( "ulib/shared/hook.lua" )
+
+POST_HOOK_RETURN = POST_HOOK_RETURN or HOOK_MONITOR_HIGH
+PRE_HOOK = PRE_HOOK or HOOK_MONITOR_HIGH
+
 addonName = "Unknown Taunts"
 
 lib = uTaunt
@@ -449,7 +456,7 @@ if SERVER
         if isPlayingTaunt( @ )
             return false
 
-    PRE_HOOK_RETURN )
+    POST_HOOK_RETURN )
 
     allowedActs = {
         [ ACT_GMOD_TAUNT_DANCE ]: true
@@ -494,7 +501,7 @@ Add( "PlayerSwitchWeapon", addonName, ( ply ) ->
     if isPlayingTaunt( ply )
         return true
 
-PRE_HOOK_RETURN )
+POST_HOOK_RETURN )
 
 do
 
@@ -707,7 +714,7 @@ do
                 toggleMenu( ply )
                 return true
 
-    PRE_HOOK_RETURN )
+    POST_HOOK_RETURN )
 
 -- Garry's Mod
 do
