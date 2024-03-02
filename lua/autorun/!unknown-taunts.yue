@@ -1,17 +1,21 @@
 PLAYER, ENTITY = FindMetaTable( "Player" ), FindMetaTable( "Entity" )
 :sub, :lower, :find, :match, :Trim = string
+RunConsoleCommand = RunConsoleCommand
 tonumber = tonumber
 isnumber = isnumber
 isvector = isvector
 isangle = isangle
 istable = istable
 CurTime = CurTime
+CLIENT = CLIENT
+SERVER = SERVER
+:bor = bit
 
 -- ULib support ( I really don't like this )
 if file.Exists( "ulib/shared/hook.lua", "LUA" )
     include( "ulib/shared/hook.lua" )
 
-POST_HOOK_RETURN = POST_HOOK_RETURN or HOOK_MONITOR_HIGH
+PRE_HOOK_RETURN = PRE_HOOK_RETURN or HOOK_MONITOR_HIGH
 PRE_HOOK = PRE_HOOK or HOOK_MONITOR_HIGH
 
 addonName = "Unknown Taunts"
@@ -21,7 +25,6 @@ unless istable( lib )
     lib = { Name: addonName }
     global uTaunt = lib
 
-defaultKey = CreateConVar( "utaunt_menu_key", KEY_I, bit.bor( FCVAR_ARCHIVE, FCVAR_REPLICATED, FCVAR_NOTIFY ), "Default key to open menu of unknown taunts, uses keys from https://wiki.facepunch.com/gmod/Enums/KEY", 0, 512 )
 coopDances = list.GetForEdit( "uTaunt - Coop", false )
 
 timer.Simple 0.5, ->
@@ -40,23 +43,25 @@ timer.Simple 0.5, ->
         for index = 1, value
             coopDances[ sequenceName .. ( danceID + index ) ] = 0
 
-:IsValid, :GetNW2Var, :SetNW2Var, :LookupSequence, :SequenceDuration, :GetSequenceList = ENTITY
+:IsValid, :GetNW2Var, :SetNW2Var, :LookupSequence, :SequenceDuration, :GetSequenceList, :GetAngles = ENTITY
 :Add, :Run = hook
 :Alive = PLAYER
 
 ACT_GMOD_TAUNT_DANCE = ACT_GMOD_TAUNT_DANCE
 GESTURE_SLOT_CUSTOM = GESTURE_SLOT_CUSTOM
 
-isCPlayingTaunt = PLAYER.IsCPlayingTaunt
-unless isCPlayingTaunt
-    isCPlayingTaunt = PLAYER.IsPlayingTaunt
-    PLAYER.IsCPlayingTaunt = isCPlayingTaunt
+isPlayingCTaunt = PLAYER.IsPlayingCTaunt
+if isPlayingCTaunt == nil
+    isPlayingCTaunt = PLAYER.IsPlayingTaunt
+    PLAYER.IsPlayingCTaunt = isPlayingCTaunt
 
 lib.GetSequenceName = ( ply ) ->
     return GetNW2Var( ply, "uTaunt-name", "" )
 
-lib.GetRenderAngles = ( ply ) ->
-    return GetNW2Var( ply, "uTaunt-angles", ply\GetAngles! )
+getRenderAngles = ( ply ) ->
+    return GetNW2Var( ply, "uTaunt-angles", GetAngles( ply ) )
+
+lib.GetRenderAngles = getRenderAngles
 
 isPlayingTaunt = ( ply ) ->
     return GetNW2Var( ply, "uTaunt-name" ) ~= nil
@@ -102,8 +107,11 @@ do
 
     lib.FindSound = findSound
 
-PLAYER.IsPlayingTaunt = ( ply ) ->
-    return isCPlayingTaunt( ply ) or isPlayingTaunt( ply )
+isPlayingAnyTaunt = ( ply ) ->
+    return ply.m_bIsPlayingTaunt or false
+
+PLAYER.IsPlayingTaunt = isPlayingAnyTaunt
+lib.IsPlayingAnyTaunt = isPlayingAnyTaunt
 
 getCycle = nil
 do
@@ -144,6 +152,14 @@ isValidTauntingPlayer = ( ply ) ->
 
 lib.IsValidTauntingPlayer = isValidTauntingPlayer
 
+utaunt_allow_weapons, utaunt_allow_movement, utaunt_allow_attack = nil, nil, nil
+do
+
+    flags = bor( FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY )
+    utaunt_allow_weapons = CreateConVar( "utaunt_allow_weapons", "0", flags, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
+    utaunt_allow_movement = CreateConVar( "utaunt_allow_movement", "0", flags, "Allow players to move while taunting.", 0, 1 )
+    utaunt_allow_attack = CreateConVar( "utaunt_allow_attack", "0", flags, "Allow players to attack while taunting.", 0, 1 )
+
 if SERVER
 
     :GetInfo = PLAYER
@@ -174,12 +190,12 @@ if SERVER
     lib.IsAudioEnabled = ( ply ) ->
         return GetInfo( ply, "utaunt_audio" ) == "1"
 
-    utaunt_real_origin, utaunt_allow_weapon, utaunt_coop_distance, utaunt_collisions = nil, nil, nil, nil
+    utaunt_menu_key, utaunt_real_origin, utaunt_coop_distance, utaunt_collisions = nil, nil, nil, nil
     do
 
-        flags = bit.bor( FCVAR_ARCHIVE, FCVAR_NOTIFY )
+        flags = bor( FCVAR_ARCHIVE, FCVAR_NOTIFY )
+        utaunt_menu_key = CreateConVar( "utaunt_menu_key", KEY_I, flags, "Default key to open menu of unknown taunts, uses keys from https://wiki.facepunch.com/gmod/Enums/KEY", 0, 512 )
         utaunt_real_origin = CreateConVar( "utaunt_real_origin", "0", flags, "Uses the player's real position instead of initial position at the end of taunt.", 0, 1 )
-        utaunt_allow_weapon = CreateConVar( "utaunt_allow_weapon", "0", flags, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
         utaunt_coop_distance = CreateConVar( "utaunt_coop_distance", "512", flags, "Minimum required distance to join in a co-op taunt.", 0, 16384 )
         utaunt_collisions = CreateConVar( "utaunt_collisions", "0", flags, "Allow players to collide with each other while taunting.", 0, 1 )
 
@@ -232,13 +248,12 @@ if SERVER
             SetNW2Var( ply, "uTaunt-name", nil )
 
             -- Angles
-            angles = GetNW2Var( ply, "uTaunt-angles", ply.m_aUnknownTauntAngles )
+            angles = GetNW2Var( ply, "uTaunt-angles" )
             if isangle( angles )
+                angles[ 1 ], angles[ 3 ] = 0, 0
                 ply\SetEyeAngles( angles )
-                ply\SetAngles( angles )
 
             SetNW2Var( ply, "uTaunt-angles", nil )
-            ply.m_aUnknownTauntAngles = nil
 
             -- Coop players
             players = ply.m_tUnknownTauntPlayers
@@ -326,18 +341,18 @@ if SERVER
             ply.m_vUnknownTauntOrigin = ply\GetPos!
             ply\SetPos( startOrigin )
 
-        if isangle( startAngles )
-            ply.m_aUnknownTauntAngles = ply\EyeAngles!
-            SetNW2Var( ply, "uTaunt-angles", startAngles )
-            ply\SetEyeAngles( startAngles )
-            ply\SetAngles( startAngles )
+        unless isangle( startAngles )
+            startAngles = GetAngles( ply )
+
+        SetNW2Var( ply, "uTaunt-angles", startAngles )
+        ply\SetEyeAngles( startAngles )
 
         unless utaunt_collisions\GetBool!
             ply.m_iUnknownTauntCollisionGroup = ply\GetCollisionGroup!
             ply.m_bUnknownTauntAvoidPlayers = ply\GetAvoidPlayers!
             ply\SetAvoidPlayers( false )
 
-        unless utaunt_allow_weapon\GetBool!
+        unless utaunt_allow_weapons\GetBool!
             weapon = ply\GetActiveWeapon!
             if weapon and IsValid( weapon )
                 ply.m_sUnknownTauntWeapon = weapon\GetClass!
@@ -441,7 +456,7 @@ if SERVER
         PRE_HOOK )
 
     concommand.Add "utaunt", ( ply, _, args ) ->
-        if not ( ply and IsValid( ply ) and Alive( ply ) ) or ply\IsCPlayingTaunt!
+        if not ( ply and IsValid( ply ) and Alive( ply ) ) or isPlayingCTaunt( ply )
             return
 
         if isstring( args[ 1 ] )
@@ -452,11 +467,9 @@ if SERVER
         if isPlayingTaunt( ply )
             lib.Finish( ply, false )
 
-    Add( "PlayerShouldTaunt", addonName, =>
-        if isPlayingTaunt( @ )
+    Add "PlayerShouldTaunt", addonName, ( ply ) ->
+        if isPlayingAnyTaunt( ply )
             return false
-
-    POST_HOOK_RETURN )
 
     allowedActs = {
         [ ACT_GMOD_TAUNT_DANCE ]: true
@@ -497,11 +510,19 @@ if SERVER
 
     PRE_HOOK )
 
-Add( "PlayerSwitchWeapon", addonName, ( ply ) ->
-    if isPlayingTaunt( ply )
-        return true
+    Add( "PlayerButtonDown", addonName, ( ply, keyCode ) ->
+        if keyCode == utaunt_menu_key\GetInt!
+            ply\ConCommand( "utaunts " .. keyCode )
+            return
 
-POST_HOOK_RETURN )
+    PRE_HOOK )
+
+Add "PlayerSwitchWeapon", addonName, ( ply ) ->
+    if isPlayingAnyTaunt( ply )
+        if utaunt_allow_weapons\GetBool!
+            return
+
+        return true
 
 do
 
@@ -509,29 +530,65 @@ do
 
     Add( "UpdateAnimation", addonName, ( ply ) ->
         if isPlayingTaunt( ply )
-            ply.m_dLastUnknownTaunt = CurTime!
+            ply.m_dLastPlayingTaunt = CurTime!
+            SetRenderAngles( ply, getRenderAngles( ply ) )
 
-            angles = GetNW2Var( ply, "uTaunt-angles" )
-            if angles == nil
-                return
+        elseif isPlayingCTaunt( ply )
+            ply.m_dLastPlayingTaunt = CurTime!
 
-            SetRenderAngles( ply, angles )
+        if ply.m_dLastPlayingTaunt == nil
+            if ply.m_bIsPlayingTaunt == nil
+                ply.m_bIsPlayingTaunt = false
+
             return
+
+        if ( CurTime! - ply.m_dLastPlayingTaunt ) > 0.1
+            ply.m_dLastPlayingTaunt = nil
+            ply.m_bIsPlayingTaunt = false
+            return
+
+        ply.m_bIsPlayingTaunt = true
 
     PRE_HOOK )
 
 do
 
-    :KeyDown, :RemoveKey = FindMetaTable( "CUserCmd" )
-    IN_JUMP, IN_DUCK = IN_JUMP, IN_DUCK
+    :ClearMovement, :SetButtons, :SetImpulse, :KeyDown, :RemoveKey = FindMetaTable( "CUserCmd" )
+    IN_ATTACK, IN_ATTACK2, IN_DUCK, IN_JUMP = IN_ATTACK, IN_ATTACK2, IN_DUCK, IN_JUMP
+    :band = bit
+
+    buttons = 0
 
     Add( "StartCommand", addonName, ( ply, cmd ) ->
-        if ply.m_dLastUnknownTaunt ~= nil and ( CurTime! - ply.m_dLastUnknownTaunt ) < 0.25
-            if KeyDown( cmd, IN_JUMP )
-                RemoveKey( cmd, IN_JUMP )
+        unless isPlayingAnyTaunt( ply )
+            return
 
-            if KeyDown( cmd, IN_DUCK )
-                RemoveKey( cmd, IN_DUCK )
+        buttons = Run( "TauntStartCommand", ply, cmd, GetNW2Var( ply, "uTaunt-name", "" ) )
+        unless isnumber( buttons )
+            buttons = 0
+
+        if KeyDown( cmd, IN_JUMP )
+            RemoveKey( cmd, IN_JUMP )
+
+            if isPlayingTaunt( ply ) and CLIENT and ply.m_bIsLocalPlayer
+                RunConsoleCommand( "utaunt_stop" )
+
+        if KeyDown( cmd, IN_DUCK )
+            RemoveKey( cmd, IN_DUCK )
+
+        unless utaunt_allow_movement\GetBool!
+            ClearMovement( cmd )
+
+        if utaunt_allow_attack\GetBool!
+            if KeyDown( cmd, IN_ATTACK ) and band( buttons, IN_ATTACK ) == 0
+                buttons = bor( buttons, IN_ATTACK )
+
+            if KeyDown( cmd, IN_ATTACK2 ) and band( buttons, IN_ATTACK2 ) == 0
+                buttons = bor( buttons, IN_ATTACK2 )
+
+        SetButtons( cmd, buttons )
+        SetImpulse( cmd, 0 )
+        return
 
     PRE_HOOK )
 
@@ -547,8 +604,6 @@ do
     lib.IsAudioEnabled = ->
         return utaunt_audio\GetBool!
 
-RunConsoleCommand = RunConsoleCommand
-LocalPlayer = LocalPlayer
 :GetPhrase = language
 
 getPhrase = ( placeholder ) ->
@@ -559,6 +614,12 @@ getPhrase = ( placeholder ) ->
     return fulltext
 
 lib.GetPhrase = getPhrase
+
+Add( "InitPostEntity", addonName, ->
+    ply = LocalPlayer!
+    ply.m_bIsLocalPlayer = true
+    ply.m_bIsPlayingTaunt = false
+PRE_HOOK )
 
 do
 
@@ -652,46 +713,40 @@ do
 
     PRE_HOOK )
 
-toggleMenu = ( ply ) ->
-    if ply\IsCPlayingTaunt!
-        return
+toggleMenu = ( ply, keyCode ) ->
+    if isPlayingCTaunt( ply )
+        return false
+
+    if keyCode ~= nil
+        bind = input.LookupKeyBinding( keyCode )
+        if bind ~= nil and #bind > 0
+            return false
 
     panel = lib.Panel
     if panel and panel\IsValid!
         panel\Remove!
-        return
+        return true
 
     if Run( "AllowTauntMenu", ply ) == false
-        return
+        return false
 
     panel = vgui.Create( "uTaunt::Menu" )
     lib.Panel = panel
     panel\Setup( ply )
+    return true
 
 lib.ToggleMenu = toggleMenu
-concommand.Add "utaunts", toggleMenu
 
-do
+concommand.Add "utaunts", ( ply, _, args ) ->
+    unless ply\Alive!
+        return
 
-    IsFirstTimePredicted = IsFirstTimePredicted
-    :LookupKeyBinding = input
-    KEY_SPACE = KEY_SPACE
+    keyCode = args[ 1 ]
+    if keyCode ~= nil and #keyCode > 0
+        keyCode = tonumber( keyCode )
 
-    Add( "PlayerButtonDown", addonName, ( ply, keyCode ) ->
-        unless IsFirstTimePredicted!
-            return
-
-        if keyCode == defaultKey\GetInt!
-            bind = LookupKeyBinding( keyCode )
-            if bind == nil or bind == "utaunts" or #bind == 0
-                toggleMenu( ply )
-                return
-
-        elseif keyCode == KEY_SPACE and isPlayingTaunt( ply )
-            RunConsoleCommand( "utaunt_stop" )
-            return
-
-    PRE_HOOK )
+    toggleMenu( ply, keyCode )
+    return
 
 do
 
@@ -699,7 +754,7 @@ do
     allowedChars = { "/": true, "!": true }
 
     Add( "OnPlayerChat", addonName, ( ply, text, isTeam, isDead ) ->
-        if isDead or isTeam or ply ~= LocalPlayer!
+        if isDead or isTeam or not ply.m_bIsLocalPlayer
             return
 
         text = lower( Trim( text ) )
@@ -714,7 +769,7 @@ do
                 toggleMenu( ply )
                 return true
 
-    POST_HOOK_RETURN )
+    PRE_HOOK_RETURN )
 
 -- Garry's Mod
 do
