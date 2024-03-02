@@ -820,6 +820,7 @@ do
 
 do
 
+    utaunt_menu_auto_close = CreateClientConVar( "utaunt_menu_auto_close", "0", true, false, "Automatically close the taunt menu when a taunt is selected.", 0, 1 )
     :DrawRect, :SetDrawColor = surface
     :floor, :Round = math
 
@@ -1012,9 +1013,13 @@ do
                 combo\Dock( TOP )
 
                 combo.OnSelect = ( _, __, ___, name ) ->
-                    combo\SetText( "#unknown_taunts.menu.select" )
                     RunConsoleCommand( "utaunt", name )
-                    -- @Close!
+
+                    if utaunt_menu_auto_close\GetBool!
+                        @Close!
+                        return
+
+                    combo\SetText( "#unknown_taunts.menu.select" )
 
             for index = 1, length
                 if sequences[ index ] ~= false
