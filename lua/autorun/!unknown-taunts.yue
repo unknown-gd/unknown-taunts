@@ -162,6 +162,7 @@ do
 
 if SERVER
 
+    resource.AddWorkshop( "3161527342" )
     :GetInfo = PLAYER
 
     lib.SetSequenceName = ( ply, sequenceName ) ->
@@ -202,7 +203,6 @@ if SERVER
         utaunt_coop_distance = CreateConVar( "utaunt_coop_distance", "512", flags, "Minimum required distance to join in a co-op taunt.", 0, 16384 )
         utaunt_collisions = CreateConVar( "utaunt_collisions", "0", flags, "Allow players to collide with each other while taunting.", 0, 1 )
 
-    resource.AddWorkshop( "3161527342" )
     :GetModel, :SetCollisionGroup = ENTITY
 
     Add( "PlayerInitialSpawn", addonName, ( ply ) ->
