@@ -33,6 +33,7 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - `boolean` uTaunt.SetCycle( `Player` ply, `int` sequenceID, `float` cycle ) - sets sequence progress from 0 to 1 as **float**, returns **true** if successful, otherwise **false**.
 - uTaunt.SetRenderAngles( `Player` ply, `Angle` angles ) - sets angles of player render as **Angle**.
 - uTaunt.IsAudioEnabled( `Player` ply ) - returns **true** if sequences audio is enabled.
+- uTaunt.IsCoopEnabled( `Player` ply ) - returns **true** if sequences in co-op mode is enabled.
 
 ### Shared Functions
 - `table` uTaunt.FindSequences( `Entity` entity, `string` pattern ) - returns list with sequences data like `{ id = 0, name = "idle", duration = 1 }`.
@@ -47,6 +48,10 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - uTaunt.ToggleMenu( `Player` ply ) - toggles uTaunt menu.
 - `string` uTaunt.GetPhrase( `string` placeholder ) - returns localized phrase as **string**.
 - `boolean` uTaunt.IsAudioEnabled() - returns **true** if sequences audio is enabled.
+- `boolean` uTaunt.IsCoopEnabled() - returns **true** if coop sequences is allowed.
+
+### Shared Hooks
+- GM:TauntStartCommand( `Player` ply, `CUserCommand` cmd, `string` sequenceName ) - called when player taunting, here can be returned the bit number of buttons that the player presses.
 
 ### Server Hooks
 - GM:PlayerStartedUnknownTaunt( `Player` ply, `string` sequenceName, `double` duration ) - called when a player's taunt was started.
@@ -55,6 +60,7 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - GM:PlayerShouldFinishTaunt( `Player` ply, `string` sequenceName, `boolean` isFinished, `double` timeRemaining, `int` sequenceID, `double` finishTime ) - if return here **false** taunt won't be stopped ( personally, I don't recommend using this, but if you need... ).
 - GM:PlayerTauntThink( `Player` ply, `string` sequenceName, `float` cycle, `int` sequenceID ) - called while a player is taunting, if **false** is returned here, taunt will be stopped.
 - GM:UnknownTauntSound( `Player` ply, `string` sequenceName, `float` cycle, `double` duration, `int` sequenceID ) - called when player starts dancing, if **string** is returned here then sound will be used on string as sound path, if **false** then sound will be blocked, if **true** or **nil** then default action.
+- GM:PlayerShouldCoopTaunt( `Player` ply, `Player` otherPlayer, `string` sequenceName ) - if **false** is returned here, then cooperative dancing will be forbidden, if **true** it will be allowed.
 
 ### Client Hooks
 - GM:AllowTauntMenu( `Player` ply ) - if **false** is returned here then taunt menu opening will be blocked.

@@ -190,6 +190,9 @@ if SERVER
     lib.IsAudioEnabled = ( ply ) ->
         return GetInfo( ply, "utaunt_audio" ) == "1"
 
+    lib.IsCoopEnabled = ( ply ) ->
+        return GetInfo( ply, "utaunt_coop" ) == "1"
+
     utaunt_menu_key, utaunt_real_origin, utaunt_coop_distance, utaunt_collisions = nil, nil, nil, nil
     do
 
@@ -312,28 +315,31 @@ if SERVER
             if Run( "PlayerShouldUnknownTaunt", ply, sequenceID ) ~= true or ( not isPlayingTaunt( ply ) and Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE ) == false )
                 return false
 
-            maxDistance = utaunt_coop_distance\GetInt!
-            if maxDistance > 0
-                for otherPlayer in *ents.FindInSphere( ply\GetPos!, maxDistance )
-                    unless otherPlayer\IsPlayer! and Alive( otherPlayer )
-                        continue
+            if GetInfo( ply, "utaunt_coop" ) == "1"
+                maxDistance = utaunt_coop_distance\GetInt!
+                if maxDistance > 0
+                    for otherPlayer in *ents.FindInSphere( ply\GetPos!, maxDistance )
+                        unless otherPlayer\IsPlayer! and Alive( otherPlayer )
+                            continue
 
-                    if otherPlayer == ply or GetNW2Var( otherPlayer, "uTaunt-name" ) ~= sequenceName
-                        continue
+                        if otherPlayer == ply or GetNW2Var( otherPlayer, "uTaunt-name" ) ~= sequenceName or GetInfo( otherPlayer, "utaunt_coop" ) ~= "1"
+                            continue
 
-                    if otherPlayer\GetBonePosition( 0 )\Distance( ply\EyePos! ) > maxDistance
-                        continue
+                        if otherPlayer\GetBonePosition( 0 )\Distance( ply\EyePos! ) > maxDistance
+                            continue
 
-                    if lib.Join( ply, otherPlayer )
-                        return true
+                        if Run( "PlayerShouldCoopTaunt", ply, otherPlayer, sequenceName ) == false
+                            continue
+
+                        if lib.Join( ply, otherPlayer )
+                            return true
 
         duration = SequenceDuration( ply, sequenceID )
         if duration < 0.25
             return false
 
-        cSound = ply.m_csUnknownTauntSound
-        if cSound and cSound\IsPlaying!
-            cSound\Stop!
+        if isPlayingTaunt( ply )
+            forcedFinish( ply )
 
         ply.m_sUnknownTauntModel = GetModel( ply )
 
@@ -410,7 +416,7 @@ if SERVER
         for index = 1, coopDances[ sequenceName ]
             if not isValidTauntingPlayer( players[ index ] ) or players[ index ] == ply
                 players[ index ] = ply
-                return lib.Start( ply, danceName .. ( danceID + index ), true, getCycle( otherPlayer, sequenceID ), true, otherPlayer\GetPos!, otherPlayer\EyeAngles! )
+                return lib.Start( ply, danceName .. ( danceID + index ), true, getCycle( otherPlayer, sequenceID ), true, otherPlayer\GetPos!, getRenderAngles( otherPlayer ) )
 
         return false
 
@@ -468,7 +474,7 @@ if SERVER
             lib.Finish( ply, false )
 
     Add "PlayerShouldTaunt", addonName, ( ply ) ->
-        if isPlayingAnyTaunt( ply )
+        if isPlayingTaunt( ply ) or isPlayingCTaunt( ply )
             return false
 
     allowedActs = {
@@ -595,14 +601,21 @@ do
 unless CLIENT
     return
 
-CreateClientConVar( "utaunt_loop", "0", true, true, "Enables looping for all uTaunts.", 0, 1 )
+CreateClientConVar( "utaunt_loop", "0", true, true, "Enables looping for all taunts.", 0, 1 )
 
 do
 
-    utaunt_audio = CreateClientConVar( "utaunt_audio", "1", true, true, "Enables playing audio for uTaunts.", 0, 1 )
+    utaunt_audio = CreateClientConVar( "utaunt_audio", "1", true, true, "Enables audio playback for taunts that support this feature.", 0, 1 )
 
     lib.IsAudioEnabled = ->
         return utaunt_audio\GetBool!
+
+do
+
+    utaunt_coop = CreateClientConVar( "utaunt_coop", "1", true, true, "If enabled player will automatically join/synchronize with dance of another player nearby.", 0, 1 )
+
+    lib.IsCoopEnabled = ->
+        return utaunt_coop\GetBool!
 
 :GetPhrase = language
 
@@ -833,6 +846,9 @@ do
         @MakePopup!
         @Center!
 
+    PANEL.ClickSound = ->
+        surface.PlaySound( "garrysmod/ui_click.wav" )
+
     PANEL.Setup = ( ply ) =>
         scrollPanel = @Add( "DScrollPanel" )
         @ScrollPanel = scrollPanel
@@ -879,6 +895,29 @@ do
             button.Paint = ->
 
             button.UpdateIcon = ( state ) ->
+                button\SetImage( state and "icon16/group.png" or "icon16/user.png" )
+
+            button.UpdateIcon( cvars.Bool( "utaunt_coop" ) )
+
+            button.DoClick = ->
+                if cvars.Bool( "utaunt_coop" )
+                    RunConsoleCommand( "utaunt_coop", "0" )
+                    button.UpdateIcon( false )
+                else
+                    RunConsoleCommand( "utaunt_coop", "1" )
+                    button.UpdateIcon( true )
+
+                @ClickSound!
+
+        do
+
+            button = actions\Add( "DButton" )
+            button\SetText( "" )
+            button\SetWide( 32 )
+            button\Dock( RIGHT )
+            button.Paint = ->
+
+            button.UpdateIcon = ( state ) ->
                 button\SetImage( state and "icon16/sound.png" or "icon16/sound_mute.png" )
 
             button.UpdateIcon( cvars.Bool( "utaunt_audio" ) )
@@ -890,6 +929,8 @@ do
                 else
                     RunConsoleCommand( "utaunt_audio", "1" )
                     button.UpdateIcon( true )
+
+                @ClickSound!
 
         do
 
@@ -912,6 +953,8 @@ do
                     RunConsoleCommand( "utaunt_loop", "1" )
                     button.UpdateIcon( true )
 
+                @ClickSound!
+
         do
 
             button = actions\Add( "DButton" )
@@ -933,6 +976,7 @@ do
             button.DoClick = ->
                 if isPlayingTaunt( ply )
                     RunConsoleCommand( "utaunt_stop" )
+                    @ClickSound!
 
         do
 
