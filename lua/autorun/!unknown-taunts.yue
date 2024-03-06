@@ -43,7 +43,7 @@ timer.Simple 0.5, ->
         for index = 1, value
             coopDances[ sequenceName .. ( danceID + index ) ] = 0
 
-:IsValid, :GetNW2Var, :SetNW2Var, :LookupSequence, :SequenceDuration, :GetSequenceList, :GetAngles = ENTITY
+:IsValid, :GetNW2Var, :SetNW2Var, :LookupSequence, :SequenceDuration, :GetSequenceList = ENTITY
 :Add, :Run = hook
 :Alive = PLAYER
 
@@ -58,8 +58,15 @@ if isPlayingCTaunt == nil
 lib.GetSequenceName = ( ply ) ->
     return GetNW2Var( ply, "uTaunt-name", "" )
 
-getRenderAngles = ( ply ) ->
-    return GetNW2Var( ply, "uTaunt-angles", GetAngles( ply ) )
+getRenderAngles = nil
+do
+
+    :EyeAngles = ENTITY
+
+    getRenderAngles = ( ply ) ->
+        angles = EyeAngles( ply )
+        angles[ 1 ], angles[ 3 ] = 0, 0
+        return GetNW2Var( ply, "uTaunt-angles", angles )
 
 lib.GetRenderAngles = getRenderAngles
 
@@ -348,10 +355,9 @@ if SERVER
             ply\SetPos( startOrigin )
 
         unless isangle( startAngles )
-            startAngles = GetAngles( ply )
+            startAngles = getRenderAngles( ply )
 
         SetNW2Var( ply, "uTaunt-angles", startAngles )
-        ply\SetEyeAngles( startAngles )
 
         unless utaunt_collisions\GetBool!
             ply.m_iUnknownTauntCollisionGroup = ply\GetCollisionGroup!
