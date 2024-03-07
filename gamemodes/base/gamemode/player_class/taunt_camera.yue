@@ -1,0 +1,113 @@
+AddCSLuaFile!
+
+:Alive, :GetViewEntity = FindMetaTable( "Player" )
+FrameTime = FrameTime
+viewAngles = nil
+eyeAngles = nil
+distance = nil
+
+CAM = {}
+
+do
+
+    :LookupBone, :GetBonePosition = FindMetaTable( "Entity" )
+    :Forward = FindMetaTable( "Angle" )
+    LerpVector = LerpVector
+    LerpAngle = LerpAngle
+    :TraceHull = util
+
+    tauntTrace = {
+        mask: MASK_SHOT
+        mins: Vector( -8, -8, -8 )
+        maxs: Vector( 8, 8, 8 )
+    }
+
+    fraction = 0
+
+    CAM.ShouldDrawLocalPlayer = ( ply, on ) =>
+        if not Alive( ply ) or GetViewEntity( ply ) ~= ply
+            return false
+
+        if fraction > 0
+            return true
+
+    CAM.CalcView = ( view, ply, on ) =>
+        unless ( on or fraction > 0 ) and Alive( ply ) and GetViewEntity( ply ) == ply
+            if eyeAngles ~= nil
+                eyeAngles = nil
+
+            if viewAngles ~= nil
+                viewAngles = nil
+
+            if distance ~= nil
+                distance = nil
+
+            return
+
+        unless viewAngles
+            viewAngles = view.angles
+            viewAngles[ 1 ], viewAngles[ 3 ] = 0, 0
+
+        unless distance
+            distance = 128
+
+        origin = view.origin
+
+        bone = LookupBone( ply, "ValveBiped.Bip01_Head1" )
+        if bone and bone >= 0
+            origin = GetBonePosition( ply, bone )
+
+        targetOrigin = origin - Forward( viewAngles ) * distance
+
+        tauntTrace.start = origin
+        tauntTrace.endpos = targetOrigin
+        tauntTrace.filter = ply
+
+        traceResult = TraceHull( tauntTrace )
+        targetOrigin = traceResult.HitPos + traceResult.HitNormal
+
+        unless eyeAngles
+            eyeAngles = Angle( viewAngles )
+
+        if on
+            if fraction < 1
+                fraction += FrameTime! * 4
+                view.origin = LerpVector( fraction, origin, targetOrigin )
+                view.angles = LerpAngle( fraction, eyeAngles, viewAngles )
+                return view
+
+        elseif fraction > 0
+            fraction -= FrameTime! * 3
+            view.origin = LerpVector( fraction, origin, targetOrigin )
+            view.angles = LerpAngle( fraction, eyeAngles, viewAngles )
+            return view
+
+        view.origin = targetOrigin
+        view.angles = viewAngles
+        return view
+
+do
+
+    :SetViewAngles, :GetMouseX, :GetMouseY, :GetMouseWheel = FindMetaTable( "CUserCmd" )
+    :Clamp = math
+
+    frameTime = 0
+
+    CAM.CreateMove = ( cmd, ply, on ) =>
+        unless on and Alive( ply ) and GetViewEntity( ply ) == ply
+            return
+
+        if viewAngles
+            frameTime = FrameTime!
+            viewAngles[ 1 ] += GetMouseY( cmd ) * frameTime
+            viewAngles[ 2 ] -= GetMouseX( cmd ) * frameTime
+
+        if distance
+            distance = Clamp( distance - GetMouseWheel( cmd ) * ( distance * 0.25 ), 16, 1024 )
+
+        if eyeAngles
+            SetViewAngles( cmd, eyeAngles )
+            return
+
+global TauntCamera = ->
+    return CAM

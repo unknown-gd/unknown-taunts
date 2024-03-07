@@ -15,7 +15,6 @@ SERVER = SERVER
 if file.Exists( "ulib/shared/hook.lua", "LUA" )
     include( "ulib/shared/hook.lua" )
 
-PRE_HOOK_RETURN = PRE_HOOK_RETURN or HOOK_MONITOR_HIGH
 PRE_HOOK = PRE_HOOK or HOOK_MONITOR_HIGH
 
 addonName = "Unknown Taunts"
@@ -634,11 +633,28 @@ getPhrase = ( placeholder ) ->
 
 lib.GetPhrase = getPhrase
 
-Add( "InitPostEntity", addonName, ->
+do
+
     ply = LocalPlayer!
-    ply.m_bIsLocalPlayer = true
-    ply.m_bIsPlayingTaunt = false
-PRE_HOOK )
+    isInTaunt = false
+
+    global IsInTaunt = ->
+        return isInTaunt
+
+    Add( "InitPostEntity", addonName, ->
+        ply = LocalPlayer!
+        ply.m_bIsLocalPlayer = true
+        ply.m_bIsPlayingTaunt = false
+    PRE_HOOK )
+
+    Add( "Think", addonName, ->
+        if ply and IsValid( ply )
+            isInTaunt = ply.m_bIsPlayingTaunt
+    PRE_HOOK )
+
+    Add "HUDShouldDraw", addonName, ( name ) ->
+        if isInTaunt and name == "CHudWeaponSelection"
+            return false
 
 do
 
@@ -772,7 +788,7 @@ do
     commmands = { "taunt", "dance", "utaunt", "udance" }
     allowedChars = { "/": true, "!": true }
 
-    Add( "OnPlayerChat", addonName, ( ply, text, isTeam, isDead ) ->
+    Add "OnPlayerChat", addonName, ( ply, text, isTeam, isDead ) ->
         if isDead or isTeam or not ply.m_bIsLocalPlayer
             return
 
@@ -787,8 +803,6 @@ do
             if find( text, command, 1, false ) ~= nil
                 toggleMenu( ply )
                 return true
-
-    PRE_HOOK_RETURN )
 
 -- Garry's Mod
 do
@@ -1102,18 +1116,19 @@ do
     :Round = math
     MsgC = MsgC
 
-    concommand.Add "utaunt_list", ( ply ) ->
+    concommand.Add "utaunt_list", ( ply, _, args ) ->
         modelSequences = GetSequenceList( ply )
+        allowAll = args[ 1 ] == "1"
         sequences, count = {}, 0
 
         for index = 1, #modelSequences
             sequenceName = modelSequences[ index ]
-            if Run( "AllowUnknownTaunt", ply, sequenceName, "Sequences" ) == false
+            if not allowAll and Run( "AllowUnknownTaunt", ply, sequenceName, "Sequences" ) == false
                 continue
 
             placeholder = "unknown_taunts." .. sequenceName
             fulltext = GetPhrase( placeholder )
-            if fulltext == placeholder
+            if not allowAll and fulltext == placeholder
                 continue
 
             count += 1
