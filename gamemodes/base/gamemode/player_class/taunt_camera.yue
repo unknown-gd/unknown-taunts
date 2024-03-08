@@ -103,7 +103,7 @@ do
             viewAngles[ 2 ] -= GetMouseX( cmd ) * frameTime
 
         if distance
-            distance = Clamp( distance - GetMouseWheel( cmd ) * ( distance * 0.25 ), 16, 1024 )
+            distance = Clamp( distance - GetMouseWheel( cmd ) * ( distance * 0.1 ), 16, 1024 )
 
         if eyeAngles
             SetViewAngles( cmd, eyeAngles )
