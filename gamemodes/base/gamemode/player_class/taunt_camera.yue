@@ -1,5 +1,6 @@
 AddCSLuaFile!
 
+cl_taunt_headcam = CreateClientConVar( "cl_taunt_headcam", "1", true, false, "Makes player's head the center of the screen.", 0, 1 )
 :Alive, :GetViewEntity = FindMetaTable( "Player" )
 FrameTime = FrameTime
 viewAngles = nil
@@ -16,10 +17,12 @@ do
     LerpAngle = LerpAngle
     :TraceHull = util
 
-    tauntTrace = {
-        mask: MASK_SHOT
+    traceResult = {}
+    trace = {
         mins: Vector( -8, -8, -8 )
         maxs: Vector( 8, 8, 8 )
+        output: traceResult
+        mask: MASK_SHOT
     }
 
     fraction = 0
@@ -45,7 +48,7 @@ do
             return
 
         unless viewAngles
-            viewAngles = view.angles
+            viewAngles = Angle( view.angles )
             viewAngles[ 1 ], viewAngles[ 3 ] = 0, 0
 
         unless distance
@@ -53,17 +56,18 @@ do
 
         origin = view.origin
 
-        bone = LookupBone( ply, "ValveBiped.Bip01_Head1" )
-        if bone and bone >= 0
-            origin = GetBonePosition( ply, bone )
+        if cl_taunt_headcam\GetBool!
+            bone = LookupBone( ply, "ValveBiped.Bip01_Head1" )
+            if bone and bone >= 0
+                origin = GetBonePosition( ply, bone )
 
         targetOrigin = origin - Forward( viewAngles ) * distance
 
-        tauntTrace.start = origin
-        tauntTrace.endpos = targetOrigin
-        tauntTrace.filter = ply
+        trace.start = origin
+        trace.endpos = targetOrigin
+        trace.filter = ply
+        TraceHull( trace )
 
-        traceResult = TraceHull( tauntTrace )
         targetOrigin = traceResult.HitPos + traceResult.HitNormal
 
         unless eyeAngles
@@ -77,7 +81,7 @@ do
                 return view
 
         elseif fraction > 0
-            fraction -= FrameTime! * 3
+            fraction -= FrameTime! * 2
             view.origin = LerpVector( fraction, origin, targetOrigin )
             view.angles = LerpAngle( fraction, eyeAngles, viewAngles )
             return view
