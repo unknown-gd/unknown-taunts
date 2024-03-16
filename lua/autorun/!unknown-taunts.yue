@@ -55,7 +55,7 @@ if isPlayingCTaunt == nil
     PLAYER.IsPlayingCTaunt = isPlayingCTaunt
 
 lib.GetSequenceName = ( ply ) ->
-    return GetNW2Var( ply, "uTaunt-name", "" )
+    return GetNW2Var( ply, "uTaunt-Name", "" )
 
 getRenderAngles = nil
 do
@@ -65,17 +65,17 @@ do
     getRenderAngles = ( ply ) ->
         angles = EyeAngles( ply )
         angles[ 1 ], angles[ 3 ] = 0, 0
-        return GetNW2Var( ply, "uTaunt-angles", angles )
+        return GetNW2Var( ply, "uTaunt-Angles", angles )
 
 lib.GetRenderAngles = getRenderAngles
 
 isPlayingTaunt = ( ply ) ->
-    return GetNW2Var( ply, "uTaunt-name" ) ~= nil
+    return GetNW2Var( ply, "uTaunt-Name" ) ~= nil
 
 lib.IsPlayingTaunt = isPlayingTaunt
 
 getStartTime = ( ply ) ->
-    return GetNW2Var( ply, "uTaunt-start" ) or CurTime!
+    return GetNW2Var( ply, "uTaunt-Start" ) or CurTime!
 
 lib.GetStartTime = getStartTime
 
@@ -171,17 +171,17 @@ if SERVER
     :GetInfo = PLAYER
 
     lib.SetSequenceName = ( ply, sequenceName ) ->
-        SetNW2Var( ply, "uTaunt-name", sequenceName )
+        SetNW2Var( ply, "uTaunt-Name", sequenceName )
 
     lib.SetRenderAngles = ( ply, angles ) ->
-        SetNW2Var( ply, "uTaunt-angles", angles )
+        SetNW2Var( ply, "uTaunt-Angles", angles )
 
     lib.SetCycle = ( ply, cycle, sequenceID ) ->
         unless isnumber( cycle )
             cycle = 0
 
         unless isnumber( sequenceID )
-            sequenceName = GetNW2Var( ply, "uTaunt-name" )
+            sequenceName = GetNW2Var( ply, "uTaunt-Name" )
             if sequenceName == nil
                 return false
 
@@ -190,7 +190,7 @@ if SERVER
         if sequenceID < 1
             return false
 
-        SetNW2Var( ply, "uTaunt-start", CurTime! - ( cycle * SequenceDuration( ply, sequenceID ) ) )
+        SetNW2Var( ply, "uTaunt-Start", CurTime! - ( cycle * SequenceDuration( ply, sequenceID ) ) )
         return true
 
     lib.IsAudioEnabled = ( ply ) ->
@@ -212,6 +212,7 @@ if SERVER
 
     Add( "PlayerInitialSpawn", addonName, ( ply ) ->
         ply.m_tUnknownTauntPlayers = {}
+
     PRE_HOOK )
 
     do
@@ -220,7 +221,7 @@ if SERVER
         isbool = isbool
 
         lib.Finish = ( ply, force ) ->
-            sequenceName = GetNW2Var( ply, "uTaunt-name" )
+            sequenceName = GetNW2Var( ply, "uTaunt-Name" )
             if sequenceName == nil
                 return false
 
@@ -253,15 +254,15 @@ if SERVER
             ply.m_vUnknownTauntOrigin = nil
 
             ply\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
-            SetNW2Var( ply, "uTaunt-name", nil )
+            SetNW2Var( ply, "uTaunt-Name", nil )
 
             -- Angles
-            angles = GetNW2Var( ply, "uTaunt-angles" )
+            angles = GetNW2Var( ply, "uTaunt-Angles" )
             if isangle( angles )
                 angles[ 1 ], angles[ 3 ] = 0, 0
                 ply\SetEyeAngles( angles )
 
-            SetNW2Var( ply, "uTaunt-angles", nil )
+            SetNW2Var( ply, "uTaunt-Angles", nil )
 
             -- Coop players
             players = ply.m_tUnknownTauntPlayers
@@ -327,7 +328,7 @@ if SERVER
                         unless otherPlayer\IsPlayer! and Alive( otherPlayer )
                             continue
 
-                        if otherPlayer == ply or GetNW2Var( otherPlayer, "uTaunt-name" ) ~= sequenceName or GetInfo( otherPlayer, "utaunt_coop" ) ~= "1"
+                        if otherPlayer == ply or GetNW2Var( otherPlayer, "uTaunt-Name" ) ~= sequenceName or GetInfo( otherPlayer, "utaunt_coop" ) ~= "1"
                             continue
 
                         if otherPlayer\GetBonePosition( 0 )\Distance( ply\EyePos! ) > maxDistance
@@ -355,7 +356,7 @@ if SERVER
         unless isangle( startAngles )
             startAngles = getRenderAngles( ply )
 
-        SetNW2Var( ply, "uTaunt-angles", startAngles )
+        SetNW2Var( ply, "uTaunt-Angles", startAngles )
 
         unless utaunt_collisions\GetBool!
             ply.m_iUnknownTauntCollisionGroup = ply\GetCollisionGroup!
@@ -371,8 +372,8 @@ if SERVER
         unless cycle
             cycle = 0
 
-        SetNW2Var( ply, "uTaunt-start", CurTime! - ( cycle * duration ) )
-        SetNW2Var( ply, "uTaunt-name", sequenceName )
+        SetNW2Var( ply, "uTaunt-Start", CurTime! - ( cycle * duration ) )
+        SetNW2Var( ply, "uTaunt-Name", sequenceName )
 
         ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, 0, true )
 
@@ -396,7 +397,7 @@ if SERVER
         return true
 
     lib.Join = ( ply, otherPlayer ) ->
-        sequenceName = GetNW2Var( otherPlayer, "uTaunt-name" )
+        sequenceName = GetNW2Var( otherPlayer, "uTaunt-Name" )
         if sequenceName == nil
             return false
 
@@ -432,7 +433,7 @@ if SERVER
         sequenceID = 0
 
         Add( "PlayerPostThink", addonName, ( ply ) ->
-            sequenceName = GetNW2Var( ply, "uTaunt-name" )
+            sequenceName = GetNW2Var( ply, "uTaunt-Name" )
             if sequenceName == nil
                 return
 
@@ -573,7 +574,7 @@ do
         unless isPlayingAnyTaunt( ply )
             return
 
-        buttons = Run( "TauntStartCommand", ply, cmd, GetNW2Var( ply, "uTaunt-name", "" ) )
+        buttons = Run( "TauntStartCommand", ply, cmd, GetNW2Var( ply, "uTaunt-Name", "" ) )
         unless isnumber( buttons )
             buttons = 0
 
@@ -644,11 +645,13 @@ do
         ply = LocalPlayer!
         ply.m_bIsLocalPlayer = true
         ply.m_bIsPlayingTaunt = false
+
     PRE_HOOK )
 
     Add( "Think", addonName, ->
         if ply and IsValid( ply )
             isInTaunt = ply.m_bIsPlayingTaunt
+
     PRE_HOOK )
 
     Add "HUDShouldDraw", addonName, ( name ) ->
@@ -678,7 +681,7 @@ do
         unless IsValid( entity ) and entity\IsPlayer! and Alive( entity )
             return
 
-        if key == "uTaunt-name"
+        if key == "uTaunt-Name"
             if value == nil
                 if entity.m_bUsingUnknownTaunt
                     entity.m_bUsingUnknownTaunt = false
@@ -695,11 +698,11 @@ do
 
             cycle = getCycle( entity, sequenceID )
             entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
-            Run( "UnknownTauntSynced", entity, value, cycle, sequenceID )
+            Run( "UnknownTauntSynced", entity, value, cycle, sequenceID, GetNW2Var( entity, "uTaunt-WebAudio", false ) )
             return
 
-        if key == "uTaunt-start"
-            sequenceName = GetNW2Var( entity, "uTaunt-name" )
+        if key == "uTaunt-Start"
+            sequenceName = GetNW2Var( entity, "uTaunt-Name" )
             if sequenceName == nil
                 if entity.m_bUsingUnknownTaunt
                     entity.m_bUsingUnknownTaunt = false
@@ -725,7 +728,7 @@ do
         unless shouldtransmit and IsValid( entity ) and entity\IsPlayer! and Alive( entity )
             return
 
-        sequenceName = GetNW2Var( entity, "uTaunt-name" )
+        sequenceName = GetNW2Var( entity, "uTaunt-Name" )
         if sequenceName == nil
             if entity.m_bUsingUnknownTaunt
                 entity.m_bUsingUnknownTaunt = false
@@ -889,7 +892,7 @@ do
             actions\SetTall( 32 )
 
         actions.Think = ->
-            sequenceName = GetNW2Var( ply, "uTaunt-name" )
+            sequenceName = GetNW2Var( ply, "uTaunt-Name" )
             if sequenceName == nil
                 actions.Progress = 0
                 return
@@ -1011,7 +1014,7 @@ do
 
                     return
 
-                sequenceName = GetNW2Var( ply, "uTaunt-name" )
+                sequenceName = GetNW2Var( ply, "uTaunt-Name" )
                 if sequenceName == nil
                     if label.SequenceName ~= nil
                         label.SequenceName = nil
