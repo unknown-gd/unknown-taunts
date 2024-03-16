@@ -24,6 +24,7 @@ unless istable( lib )
     lib = { Name: addonName }
     global uTaunt = lib
 
+webSounds = list.GetForEdit( "uTaunt - WebSounds", false )
 coopDances = list.GetForEdit( "uTaunt - Coop", false )
 
 timer.Simple 0.5, ->
@@ -78,6 +79,14 @@ getStartTime = ( ply ) ->
     return GetNW2Var( ply, "uTaunt-Start" ) or CurTime!
 
 lib.GetStartTime = getStartTime
+
+lib.GetWebSound = ( sequenceName ) ->
+    return webSounds[ sequenceName ]
+
+lib.HasWebSound = ( sequenceName ) ->
+    return webSounds[ sequenceName ] ~= nil
+
+lib.HasWebSound = hasWebSound
 
 findSound = nil
 do
@@ -377,13 +386,25 @@ if SERVER
 
         ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, 0, true )
 
-        if not noSound and ( GetInfo( ply, "utaunt_audio" ) == "1" or ply\IsBot! )
+        if noSound or not ( GetInfo( ply, "utaunt_audio" ) == "1" or ply\IsBot! )
+            SetNW2Var( ply, "uTaunt-WebAudio", false )
+
+        elseif webSounds[ sequenceName ] ~= nil
+            SetNW2Var( ply, "uTaunt-WebAudio", true )
+
+        else
+
             soundPath = Run( "UnknownTauntSound", ply, sequenceName, cycle, duration, sequenceID )
-            if soundPath ~= false
+            if soundPath == false
+                SetNW2Var( ply, "uTaunt-WebAudio", false )
+
+            else
+
                 if soundPath == nil or soundPath == true
                     soundPath = findSound( sequenceName )
 
                 if soundPath
+                    SetNW2Var( ply, "uTaunt-WebAudio", false )
                     cSound = CreateSound( ply, soundPath )
                     ply.m_csUnknownTauntSound = cSound
                     cSound\ChangeVolume( 0, 0 )
@@ -391,6 +412,10 @@ if SERVER
                     cSound\Play!
 
                     cSound\ChangeVolume( 1, 1 )
+
+                else
+
+                    SetNW2Var( ply, "uTaunt-WebAudio", true )
 
         Run( "PlayerStartTaunt", ply, ACT_GMOD_TAUNT_DANCE, duration )
         Run( "PlayerStartedUnknownTaunt", ply, sequenceName, duration )
@@ -662,16 +687,27 @@ do
 
     mins, maxs = Vector( -512, -512, 0 ), Vector( 512, 512, 512 )
 
-    Add( "UnknownTauntSynced", addonName, ( entity ) ->
+    stopAudio = ( entity ) ->
+        -- not implemented yet
+
+    Add( "UnknownTauntSynced", addonName, ( entity, sequenceName, cycle, sequenceID, webAudio ) ->
         mins[ 3 ] = entity\GetModelRenderBounds![ 3 ]
         entity\SetRenderBounds( mins, maxs )
+
+        if webAudio
+            -- not implemented yet
+            return
+
+        stopAudio( entity )
         return
     PRE_HOOK )
 
-Add( "PlayerFinishedTaunt", addonName, ( entity ) ->
-    entity\SetRenderBounds( entity\GetModelRenderBounds! )
-    return
-PRE_HOOK )
+    Add( "PlayerFinishedTaunt", addonName, ( entity ) ->
+        entity\SetRenderBounds( entity\GetModelRenderBounds! )
+        stopAudio( entity )
+        return
+
+    PRE_HOOK )
 
 do
 
@@ -719,7 +755,26 @@ do
 
             cycle = getCycle( entity, sequenceID, value )
             entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
-            Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID )
+
+        if key == "uTaunt-WebAudio"
+            sequenceName = GetNW2Var( entity, "uTaunt-Name" )
+            if sequenceName == nil
+                if entity.m_bUsingUnknownTaunt
+                    entity.m_bUsingUnknownTaunt = false
+                    entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
+                    Run( "PlayerFinishedTaunt", entity, sequenceName )
+
+                return
+
+            sequenceID = LookupSequence( entity, sequenceName )
+            if sequenceID < 1
+                return
+
+            entity.m_bUsingUnknownTaunt = true
+
+            cycle = getCycle( entity, sequenceID )
+            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
+            Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID, value == true )
             return
 
     PRE_HOOK )
