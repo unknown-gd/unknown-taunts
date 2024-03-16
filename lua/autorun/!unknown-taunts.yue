@@ -31,8 +31,8 @@ timer.Simple 0.5, ->
         if not isnumber( value ) or value < 1
             continue
 
-        sequenceName, danceID = match( sequenceName, "^([%a_]+_?)(%d+)$" )
-        if sequenceName == nil or danceID == nil
+        name, danceID = match( sequenceName, "^([%a_]+_?)(%d+)$" )
+        if name == nil or danceID == nil
             continue
 
         danceID = tonumber( danceID )
@@ -40,7 +40,7 @@ timer.Simple 0.5, ->
             continue
 
         for index = 1, value
-            coopDances[ sequenceName .. ( danceID + index ) ] = 0
+            coopDances[ name .. ( danceID + index ) ] = 0
 
 :IsValid, :GetNW2Var, :SetNW2Var, :LookupSequence, :SequenceDuration, :GetSequenceList = ENTITY
 :Add, :Run = hook
@@ -102,9 +102,8 @@ do
             return sounds[ sequenceName ]
 
         for extension in *supportedExtensions
-            extension = sequenceName .. "." .. extension
-            if soundExists( extension )
-                return "unknown-taunts/" .. extension
+            if soundExists( sequenceName .. "." .. extension )
+                return "unknown-taunts/" .. sequenceName .. "." .. extension
 
         sequenceName = "uTaunt." .. sequenceName
         for soundName in *GetTable!
