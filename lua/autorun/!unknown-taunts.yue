@@ -322,6 +322,10 @@ if SERVER
     Add "PostPlayerDeath", addonName, forcedFinish, PRE_HOOK
     Add "PlayerSpawn", addonName, forcedFinish, PRE_HOOK
 
+    Add "PlayerShouldTaunt", addonName, ( ply, _, isUTaunt ) ->
+        if not isUTaunt and isPlayingTaunt( ply )
+            return false
+
     lib.Start = ( ply, sequenceName, force, cycle, noSound, startOrigin, startAngles ) ->
         if isPlayingCTaunt( ply )
             if isPlayingTaunt( ply )

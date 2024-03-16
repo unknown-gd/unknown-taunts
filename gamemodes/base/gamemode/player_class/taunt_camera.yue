@@ -28,10 +28,7 @@ do
     fraction = 0
 
     CAM.ShouldDrawLocalPlayer = ( ply, on ) =>
-        if not Alive( ply ) or GetViewEntity( ply ) ~= ply
-            return false
-
-        if fraction > 0
+        if not Alive( ply ) or GetViewEntity( ply ) ~= ply or on or fraction > 0
             return true
 
     CAM.CalcView = ( view, ply, on ) =>
