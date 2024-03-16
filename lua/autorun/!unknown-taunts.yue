@@ -264,6 +264,7 @@ if SERVER
 
             ply\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
             SetNW2Var( ply, "uTaunt-Name", nil )
+            ply\CrosshairEnable!
 
             -- Angles
             angles = GetNW2Var( ply, "uTaunt-Angles" )
@@ -322,12 +323,18 @@ if SERVER
     Add "PlayerSpawn", addonName, forcedFinish, PRE_HOOK
 
     lib.Start = ( ply, sequenceName, force, cycle, noSound, startOrigin, startAngles ) ->
+        if isPlayingCTaunt( ply )
+            if isPlayingTaunt( ply )
+                forcedFinish( ply )
+
+            return false
+
         sequenceID = LookupSequence( ply, sequenceName )
         if sequenceID < 1
             return false
 
         unless force
-            if Run( "PlayerShouldUnknownTaunt", ply, sequenceID ) ~= true or ( not isPlayingTaunt( ply ) and Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE ) == false )
+            if Run( "PlayerShouldUnknownTaunt", ply, sequenceID ) ~= true or Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE, true ) == false
                 return false
 
             if GetInfo( ply, "utaunt_coop" ) == "1"
@@ -385,6 +392,7 @@ if SERVER
         SetNW2Var( ply, "uTaunt-Name", sequenceName )
 
         ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, 0, true )
+        ply\CrosshairDisable!
 
         if noSound or not ( GetInfo( ply, "utaunt_audio" ) == "1" or ply\IsBot! )
             SetNW2Var( ply, "uTaunt-WebAudio", false )
@@ -502,10 +510,6 @@ if SERVER
     concommand.Add "utaunt_stop", ( ply ) ->
         if isPlayingTaunt( ply )
             lib.Finish( ply, false )
-
-    Add "PlayerShouldTaunt", addonName, ( ply ) ->
-        if isPlayingTaunt( ply ) or isPlayingCTaunt( ply )
-            return false
 
     allowedActs = {
         [ ACT_GMOD_TAUNT_DANCE ]: true
@@ -743,7 +747,7 @@ do
                 if entity.m_bUsingUnknownTaunt
                     entity.m_bUsingUnknownTaunt = false
                     entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
-                    Run( "PlayerFinishedTaunt", entity, oldValue )
+                    Run( "PlayerFinishedTaunt", entity, sequenceName )
 
                 return
 
@@ -755,6 +759,8 @@ do
 
             cycle = getCycle( entity, sequenceID, value )
             entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
+            Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID, GetNW2Var( entity, "uTaunt-WebAudio", false ) )
+            return
 
         if key == "uTaunt-WebAudio"
             sequenceName = GetNW2Var( entity, "uTaunt-Name" )
@@ -781,6 +787,11 @@ do
 
     Add( "NotifyShouldTransmit", addonName, ( entity, shouldtransmit ) ->
         unless shouldtransmit and IsValid( entity ) and entity\IsPlayer! and Alive( entity )
+            if entity.m_bUsingUnknownTaunt
+                entity.m_bUsingUnknownTaunt = false
+                entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
+                Run( "PlayerFinishedTaunt", entity, oldValue )
+
             return
 
         sequenceName = GetNW2Var( entity, "uTaunt-Name" )
