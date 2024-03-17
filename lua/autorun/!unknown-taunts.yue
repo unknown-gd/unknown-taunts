@@ -1,5 +1,6 @@
 PLAYER, ENTITY = FindMetaTable( "Player" ), FindMetaTable( "Entity" )
 :sub, :lower, :find, :match, :Trim = string
+:LookupBone, :GetBonePosition = ENTITY
 RunConsoleCommand = RunConsoleCommand
 tonumber = tonumber
 isnumber = isnumber
@@ -9,10 +10,11 @@ istable = istable
 CurTime = CurTime
 CLIENT = CLIENT
 SERVER = SERVER
+:Exists = file
 :bor = bit
 
 -- ULib support ( I really don't like this )
-if file.Exists( "ulib/shared/hook.lua", "LUA" )
+if Exists( "ulib/shared/hook.lua", "LUA" )
     include( "ulib/shared/hook.lua" )
 
 PRE_HOOK = PRE_HOOK or HOOK_MONITOR_HIGH
@@ -94,7 +96,6 @@ do
     sounds = list.GetForEdit( "uTaunt - Sounds", false )
     supportedExtensions = { "mp3", "wav", "ogg" }
     :GetTable = sound
-    :Exists = file
 
     soundExists = ( sequenceName ) ->
         if Exists( "sound/unknown-taunts/" .. sequenceName, "GAME" )
@@ -174,6 +175,18 @@ do
     utaunt_allow_movement = CreateConVar( "utaunt_allow_movement", "0", flags, "Allow players to move while taunting.", 0, 1 )
     utaunt_allow_attack = CreateConVar( "utaunt_allow_attack", "0", flags, "Allow players to attack while taunting.", 0, 1 )
 
+    utaunt_sound_override = CreateConVar( "utaunt_sound_override", "", flags, "Overrides the sound of all taunts to the specified one. Leave it blank so it won't be used." )
+
+    hook.Add "UnknownTauntSound", "utaunt_sound_override", ->
+        value = utaunt_sound_override\GetString!
+        if #value == 0
+            return
+
+        if value == "0"
+            return false
+
+        return value
+
 if SERVER
 
     resource.AddWorkshop( "3161527342" )
@@ -251,11 +264,11 @@ if SERVER
             -- Origin
             origin = ply.m_vUnknownTauntOrigin
             if utaunt_real_origin\GetBool!
-                leftFoot, rightFoot = ply\LookupBone( "ValveBiped.Bip01_L_Foot" ), ply\LookupBone( "ValveBiped.Bip01_R_Foot" )
+                leftFoot, rightFoot = LookupBone( ply, "ValveBiped.Bip01_L_Foot" ), LookupBone( ply, "ValveBiped.Bip01_R_Foot" )
                 if leftFoot > 0 and rightFoot > 0
-                    origin = ( ply\GetBonePosition( leftFoot ) + ply\GetBonePosition( rightFoot ) ) / 2
+                    origin = ( GetBonePosition( ply, leftFoot ) + GetBonePosition( ply, rightFoot ) ) / 2
                 else
-                    origin = ply\GetBonePosition( 0 )
+                    origin = GetBonePosition( ply, 0 )
 
             if isvector( origin )
                 ply\SetPos( origin )
@@ -351,7 +364,7 @@ if SERVER
                         if otherPlayer == ply or GetNW2Var( otherPlayer, "uTaunt-Name" ) ~= sequenceName or GetInfo( otherPlayer, "utaunt_coop" ) ~= "1"
                             continue
 
-                        if otherPlayer\GetBonePosition( 0 )\Distance( ply\EyePos! ) > maxDistance
+                        if GetBonePosition( otherPlayer, 0 )\Distance( ply\EyePos! ) > maxDistance
                             continue
 
                         if Run( "PlayerShouldCoopTaunt", ply, otherPlayer, sequenceName ) == false
@@ -415,7 +428,7 @@ if SERVER
                 if soundPath == nil or soundPath == true
                     soundPath = findSound( sequenceName )
 
-                if soundPath
+                if soundPath and find( soundPath, "^https?://.+$" ) == nil and not Exists( soundPath, "GAME" )
                     SetNW2Var( ply, "uTaunt-WebAudio", false )
                     cSound = CreateSound( ply, soundPath )
                     ply.m_csUnknownTauntSound = cSound
@@ -694,19 +707,92 @@ do
 do
 
     mins, maxs = Vector( -512, -512, 0 ), Vector( 512, 512, 512 )
+    :Forward = FindMetaTable( "Angle" )
 
     stopAudio = ( entity ) ->
-        -- not implemented yet
+        channel = entity.m_bcUnknownTauntAudio
+        if channel and channel\IsValid!
+            channel\Stop!
+
+        entity.m_bcUnknownTauntAudio = nil
+
+    playStates = {
+        [ GMOD_CHANNEL_PLAYING ]: true
+        [ GMOD_CHANNEL_STALLED ]: true
+    }
+
+    boneID = 0
 
     Add( "UnknownTauntSynced", addonName, ( entity, sequenceName, cycle, sequenceID, webAudio ) ->
         mins[ 3 ] = entity\GetModelRenderBounds![ 3 ]
         entity\SetRenderBounds( mins, maxs )
 
-        if webAudio
-            -- not implemented yet
+        unless webAudio
+            stopAudio( entity )
             return
 
-        stopAudio( entity )
+        filePath = Run( "UnknownTauntSound", entity, sequenceName, cycle, SequenceDuration( entity, sequenceID ) or 0, sequenceID ) or webSounds[ sequenceName ]
+
+        channel = entity.m_bcUnknownTauntAudio
+        if channel and channel\IsValid!
+            unless filePath
+                entity.m_sUnknownTauntAudioFilePath = nil
+                entity.m_bcUnknownTauntAudio = nil
+                channel\Stop!
+                return
+
+            if filePath == entity.m_sUnknownTauntAudioFilePath
+                length = channel\GetLength!
+                if length > 0
+                    channel\SetTime( length * cycle )
+
+                unless playStates[ channel\GetState! ]
+                    channel\Play!
+
+                return
+
+            entity.m_sUnknownTauntAudioFilePath = nil
+            entity.m_bcUnknownTauntAudio = nil
+            channel\Stop!
+
+        unless filePath
+            return
+
+        isURL = find( filePath, "^https?://.+$" ) ~= nil
+        unless isURL or Exists( filePath, "GAME" )
+            return
+
+        sound[ isURL and "PlayURL" or "PlayFile" ] filePath, "3d noplay noblock", ( channel ) ->
+            unless channel and channel\IsValid! and isValidTauntingPlayer( entity )
+                return
+
+            entity.m_sUnknownTauntAudioFilePath = filePath
+            entity.m_bcUnknownTauntAudio = channel
+
+            length = channel\GetLength!
+            if length > 0
+                channel\SetTime( length * cycle )
+
+            channel\Play!
+
+            Add "Think", channel, ->
+                unless isValidTauntingPlayer( entity )
+                    hook.Remove( "Think", channel )
+                    entity.m_sUnknownTauntAudioFilePath = nil
+                    entity.m_bcUnknownTauntAudio = nil
+                    channel\Stop!
+                    return
+
+                boneID = LookupBone( entity, "ValveBiped.Bip01_Head1" )
+                if boneID and boneID >= 0
+                    channel\SetPos( GetBonePosition( entity, boneID ), Forward( getRenderAngles( entity ) ) )
+                    return
+
+                channel\SetPos( entity\WorldSpaceCenter!, Forward( getRenderAngles( entity ) ) )
+                return
+
+            return
+
         return
     PRE_HOOK )
 
