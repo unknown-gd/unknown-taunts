@@ -123,7 +123,7 @@ do
     lib.FindSound = findSound
 
 isPlayingAnyTaunt = ( ply ) ->
-    return ply.m_bIsPlayingTaunt or false
+    return ply.m_bIsPlayingTaunt
 
 PLAYER.IsPlayingTaunt = isPlayingAnyTaunt
 lib.IsPlayingAnyTaunt = isPlayingAnyTaunt
@@ -588,27 +588,31 @@ Add "PlayerSwitchWeapon", addonName, ( ply ) ->
 do
 
     :SetRenderAngles = PLAYER
+    :Iterator = player
+    curTime = 0
 
-    Add( "UpdateAnimation", addonName, ( ply ) ->
-        if isPlayingTaunt( ply )
-            ply.m_dLastPlayingTaunt = CurTime!
-            SetRenderAngles( ply, getRenderAngles( ply ) )
+    Add( "Think", addonName .. "::Think", ->
+        curTime = CurTime!
+        for _, ply in Iterator!
+            if isPlayingTaunt( ply )
+                ply.m_dLastPlayingTaunt = curTime
+                SetRenderAngles( ply, getRenderAngles( ply ) )
 
-        elseif isPlayingCTaunt( ply )
-            ply.m_dLastPlayingTaunt = CurTime!
+            elseif isPlayingCTaunt( ply )
+                ply.m_dLastPlayingTaunt = curTime
 
-        if ply.m_dLastPlayingTaunt == nil
-            if ply.m_bIsPlayingTaunt == nil
+            if ply.m_dLastPlayingTaunt == nil
+                if ply.m_bIsPlayingTaunt == nil
+                    ply.m_bIsPlayingTaunt = false
+
+                continue
+
+            if ( curTime - ply.m_dLastPlayingTaunt ) > 0.1
+                ply.m_dLastPlayingTaunt = nil
                 ply.m_bIsPlayingTaunt = false
+                continue
 
-            return
-
-        if ( CurTime! - ply.m_dLastPlayingTaunt ) > 0.1
-            ply.m_dLastPlayingTaunt = nil
-            ply.m_bIsPlayingTaunt = false
-            return
-
-        ply.m_bIsPlayingTaunt = true
+            ply.m_bIsPlayingTaunt = true
 
     PRE_HOOK )
 
@@ -698,7 +702,7 @@ do
 
     PRE_HOOK )
 
-    Add( "Think", addonName, ->
+    Add( "Think", addonName .. "::IsInTaunt", ->
         if ply and IsValid( ply )
             isInTaunt = ply.m_bIsPlayingTaunt
 
