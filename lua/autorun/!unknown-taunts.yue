@@ -528,38 +528,42 @@ if SERVER
         if isPlayingTaunt( ply )
             lib.Finish( ply, false )
 
-    allowedActs = {
-        [ ACT_GMOD_TAUNT_DANCE ]: true
-        [ ACT_GMOD_TAUNT_ROBOT ]: true
-        [ ACT_GMOD_TAUNT_CHEER ]: true
-        [ ACT_GMOD_TAUNT_LAUGH ]: true
-        [ ACT_GMOD_TAUNT_SALUTE ]: true
-        [ ACT_GMOD_TAUNT_MUSCLE ]: true
-        [ ACT_GMOD_TAUNT_PERSISTENCE ]: true
+    do
 
-        [ ACT_GMOD_GESTURE_BOW ]: true
-        [ ACT_GMOD_GESTURE_WAVE ]: true
-        [ ACT_GMOD_GESTURE_AGREE ]: true
-        [ ACT_GMOD_GESTURE_BECON ]: true
-        [ ACT_GMOD_GESTURE_DISAGREE ]: true
+        :GetSequenceActivity = ENTITY
 
-        [ ACT_GMOD_GESTURE_RANGE_ZOMBIE ]: true
-        [ ACT_GMOD_GESTURE_TAUNT_ZOMBIE ]: true
-        [ ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL ]: true
+        acts = {
+            [ ACT_GMOD_TAUNT_DANCE ]: true
+            [ ACT_GMOD_TAUNT_ROBOT ]: true
+            [ ACT_GMOD_TAUNT_CHEER ]: true
+            [ ACT_GMOD_TAUNT_LAUGH ]: true
+            [ ACT_GMOD_TAUNT_SALUTE ]: true
+            [ ACT_GMOD_TAUNT_MUSCLE ]: true
+            [ ACT_GMOD_TAUNT_PERSISTENCE ]: true
 
-        [ ACT_GMOD_GESTURE_ITEM_GIVE ]: true
-        [ ACT_GMOD_GESTURE_ITEM_DROP ]: true
-        [ ACT_GMOD_GESTURE_ITEM_PLACE ]: true
-        [ ACT_GMOD_GESTURE_ITEM_THROW ]: true
+            [ ACT_GMOD_GESTURE_BOW ]: true
+            [ ACT_GMOD_GESTURE_WAVE ]: true
+            [ ACT_GMOD_GESTURE_AGREE ]: true
+            [ ACT_GMOD_GESTURE_BECON ]: true
+            [ ACT_GMOD_GESTURE_DISAGREE ]: true
 
-        [ ACT_SIGNAL_FORWARD ]: true
-        [ ACT_SIGNAL_GROUP ]: true
-        [ ACT_SIGNAL_HALT ]: true
-    }
+            [ ACT_GMOD_GESTURE_RANGE_ZOMBIE ]: true
+            [ ACT_GMOD_GESTURE_TAUNT_ZOMBIE ]: true
+            [ ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL ]: true
 
-    Add "PlayerShouldUnknownTaunt", "Garry's Mod", ( ply, sequenceID ) ->
-        if allowedActs[ ply\GetSequenceActivity( sequenceID ) ]
-            return true
+            [ ACT_GMOD_GESTURE_ITEM_GIVE ]: true
+            [ ACT_GMOD_GESTURE_ITEM_DROP ]: true
+            [ ACT_GMOD_GESTURE_ITEM_PLACE ]: true
+            [ ACT_GMOD_GESTURE_ITEM_THROW ]: true
+
+            [ ACT_SIGNAL_FORWARD ]: true
+            [ ACT_SIGNAL_GROUP ]: true
+            [ ACT_SIGNAL_HALT ]: true
+        }
+
+        Add "PlayerShouldUnknownTaunt", "Default Sequences", ( ply, sequenceID ) ->
+            if acts[ GetSequenceActivity( ply, sequenceID ) ]
+                return true
 
     Add( "PlayerFinishedTaunt", addonName, ( ply, sequenceName, isFinished ) ->
         if isFinished and GetInfo( ply, "utaunt_loop" ) == "1"
@@ -962,51 +966,92 @@ do
                 toggleMenu( ply )
                 return true
 
--- Garry's Mod
+-- Default Sequences
 do
 
-    acts = {
-        ACT_GMOD_TAUNT_DANCE,
-        ACT_GMOD_TAUNT_ROBOT,
-        ACT_GMOD_TAUNT_CHEER,
-        ACT_GMOD_TAUNT_LAUGH,
-        ACT_GMOD_TAUNT_SALUTE,
-        ACT_GMOD_TAUNT_MUSCLE,
-        ACT_GMOD_TAUNT_PERSISTENCE,
-        ACT_GMOD_GESTURE_BOW,
-        ACT_GMOD_GESTURE_WAVE,
-        ACT_GMOD_GESTURE_AGREE,
-        ACT_GMOD_GESTURE_BECON,
-        ACT_GMOD_GESTURE_DISAGREE,
+    :format = string
 
-        ACT_GMOD_GESTURE_RANGE_ZOMBIE,
-        ACT_GMOD_GESTURE_TAUNT_ZOMBIE,
-        ACT_GMOD_GESTURE_RANGE_ZOMBIE_SPECIAL,
-
-        ACT_GMOD_GESTURE_ITEM_GIVE,
-        ACT_GMOD_GESTURE_ITEM_DROP,
-        ACT_GMOD_GESTURE_ITEM_PLACE,
-        ACT_GMOD_GESTURE_ITEM_THROW,
-
-        ACT_SIGNAL_FORWARD,
-        ACT_SIGNAL_GROUP,
-        ACT_SIGNAL_HALT
+    taunts = {
+        "taunt_cheer"
+        "taunt_dance"
+        "taunt_laugh"
+        "taunt_muscle"
+        "taunt_robot"
+        "taunt_persistence"
+        "taunt_zombie"
     }
 
-    Add "UnknownTauntMenuSetup", "Garry's Mod", ( add ) =>
+    gestures = {
+        "gesture_agree"
+        "gesture_bow"
+        "gesture_becon"
+        "gesture_disagree"
+        "gesture_salute"
+        "gesture_wave"
+
+        "gesture_item_drop"
+        "gesture_item_give"
+        "gesture_item_place"
+        "gesture_item_throw"
+
+        "gesture_signal_forward"
+        "gesture_signal_halt"
+        "gesture_signal_group"
+    }
+
+    zombie = {
+        "zombie_attack_01"
+        "zombie_attack_02"
+        "zombie_attack_03"
+        "zombie_attack_04"
+        "zombie_attack_05"
+        "zombie_attack_06"
+        "zombie_attack_07"
+        "zombie_attack_special"
+    }
+
+    Add "UnknownTauntMenuSetup", "Default Sequences", ( ply, add ) ->
         sequences, sequencesCount = {}, 0
-        for act in *acts
-            sequenceID = @SelectWeightedSequence( act )
-            if sequenceID < 1
+        for sequenceName in *taunts
+            if LookupSequence( ply, sequenceName ) < 0
                 continue
 
             sequencesCount += 1
-            sequences[ sequencesCount ] = @GetSequenceName( sequenceID )
+            sequences[ sequencesCount ] = sequenceName
 
-        if sequencesCount == 0
-            return
+        if sequencesCount > 0
+            add( format( GetPhrase( "unknown_taunts.menu.taunts" ), "Garry's Mod" ), sequences )
 
-        add( "Garry's Mod:", sequences )
+            for index = 1, sequencesCount
+                sequences[ index ] = nil
+
+            sequencesCount = 0
+
+        for sequenceName in *gestures
+            if LookupSequence( ply, sequenceName ) < 0
+                continue
+
+            sequencesCount += 1
+            sequences[ sequencesCount ] = sequenceName
+
+        if sequencesCount > 0
+            add( format( GetPhrase( "unknown_taunts.menu.gestures" ), "Garry's Mod" ), sequences )
+
+            for index = 1, sequencesCount
+                sequences[ index ] = nil
+
+            sequencesCount = 0
+
+        for sequenceName in *zombie
+            if LookupSequence( ply, sequenceName ) < 0
+                continue
+
+            sequencesCount += 1
+            sequences[ sequencesCount ] = sequenceName
+
+        if sequencesCount > 0
+            add( format( GetPhrase( "unknown_taunts.menu.zombie" ), "Garry's Mod" ), sequences )
+
         return
 
 do
