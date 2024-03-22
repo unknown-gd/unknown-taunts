@@ -45,7 +45,7 @@ timer.Simple 0.5, ->
         for index = 1, value
             coopDances[ name .. ( danceID + index ) ] = 0
 
-:IsValid, :GetNW2Var, :SetNW2Var, :LookupSequence, :SequenceDuration, :GetSequenceList = ENTITY
+:IsValid, :GetNW2Var, :SetNW2Var, :LookupSequence, :SequenceDuration, :GetSequenceList, :IsDormant = ENTITY
 :Add, :Run = hook
 :Alive = PLAYER
 
@@ -122,11 +122,13 @@ do
 
     lib.FindSound = findSound
 
-isPlayingAnyTaunt = ( ply ) ->
-    return ply.m_bIsPlayingTaunt
+do
 
-PLAYER.IsPlayingTaunt = isPlayingAnyTaunt
-lib.IsPlayingAnyTaunt = isPlayingAnyTaunt
+    isPlayingAnyTaunt = ( ply ) ->
+        return ply.m_bIsPlayingTaunt
+
+    PLAYER.IsPlayingTaunt = isPlayingAnyTaunt
+    lib.IsPlayingAnyTaunt = isPlayingAnyTaunt
 
 getCycle = nil
 do
@@ -177,7 +179,7 @@ do
 
     utaunt_sound_override = CreateConVar( "utaunt_sound_override", "", flags, "Overrides the sound of all taunts to the specified one. Leave it blank so it won't be used." )
 
-    hook.Add "UnknownTauntSound", "utaunt_sound_override", ->
+    Add "UnknownTauntSound", addonName .. "::SoundOverride", ->
         value = utaunt_sound_override\GetString!
         if #value == 0
             return
@@ -232,7 +234,7 @@ if SERVER
 
     :GetModel, :SetCollisionGroup = ENTITY
 
-    Add( "PlayerInitialSpawn", addonName, ( ply ) ->
+    Add( "PlayerInitialSpawn", addonName .. "::CoopData", ( ply ) ->
         ply.m_tUnknownTauntPlayers = {}
 
     PRE_HOOK )
@@ -331,11 +333,11 @@ if SERVER
         lib.Finish( ply, true )
         return
 
-    Add "PlayerDisconnected", addonName, forcedFinish, PRE_HOOK
-    Add "PostPlayerDeath", addonName, forcedFinish, PRE_HOOK
-    Add "PlayerSpawn", addonName, forcedFinish, PRE_HOOK
+    Add "PlayerDisconnected", addonName .. "::Finish", forcedFinish, PRE_HOOK
+    Add "PostPlayerDeath", addonName .. "::Finish", forcedFinish, PRE_HOOK
+    Add "PlayerSpawn", addonName .. "::Finish", forcedFinish, PRE_HOOK
 
-    Add "PlayerShouldTaunt", addonName, ( ply, _, isUTaunt ) ->
+    Add "PlayerShouldTaunt", addonName .. "::DefaultTauntBlocking", ( ply, _, isUTaunt ) ->
         if not isUTaunt and isPlayingTaunt( ply )
             return false
 
@@ -482,13 +484,16 @@ if SERVER
         :Crouching = PLAYER
         sequenceID = 0
 
-        Add( "PlayerPostThink", addonName, ( ply ) ->
-            sequenceName = GetNW2Var( ply, "uTaunt-Name" )
-            if sequenceName == nil
+        Add( "PlayerTauntThink", addonName .. "::Thinking", ( ply, isUTaunt ) ->
+            unless isUTaunt
                 return
 
             if not Alive( ply ) or Crouching( ply )
                 forcedFinish( ply )
+                return
+
+            sequenceName = GetNW2Var( ply, "uTaunt-Name" )
+            if sequenceName == nil
                 return
 
             sequenceID = LookupSequence( ply, sequenceName )
@@ -501,7 +506,7 @@ if SERVER
                 return
 
             cycle = getCycle( ply, sequenceID )
-            if Run( "PlayerTauntThink", ply, sequenceName, cycle, sequenceID ) == false or cycle == 1
+            if Run( "UnknownTauntThink", ply, sequenceName, cycle, sequenceID ) == false or cycle == 1
                 lib.Finish( ply, false )
                 return
 
@@ -561,25 +566,25 @@ if SERVER
             [ ACT_SIGNAL_HALT ]: true
         }
 
-        Add "PlayerShouldUnknownTaunt", "Default Sequences", ( ply, sequenceID ) ->
+        Add "PlayerShouldUnknownTaunt", addonName .. "::DefaultSequences", ( ply, sequenceID ) ->
             if acts[ GetSequenceActivity( ply, sequenceID ) ]
                 return true
 
-    Add( "PlayerFinishedTaunt", addonName, ( ply, sequenceName, isFinished ) ->
+    Add( "PlayerFinishedTaunt", addonName .. "::TauntLooping", ( ply, sequenceName, isFinished ) ->
         if isFinished and GetInfo( ply, "utaunt_loop" ) == "1"
             lib.Start( ply, sequenceName, false )
 
     PRE_HOOK )
 
-    Add( "PlayerButtonDown", addonName, ( ply, keyCode ) ->
+    Add( "PlayerButtonDown", addonName .. "::TauntMenu", ( ply, keyCode ) ->
         if keyCode == utaunt_menu_key\GetInt!
             ply\ConCommand( "utaunts " .. keyCode )
             return
 
     PRE_HOOK )
 
-Add "PlayerSwitchWeapon", addonName, ( ply ) ->
-    if isPlayingAnyTaunt( ply )
+Add "PlayerSwitchWeapon", addonName .. "::WeaponSwitch", ( ply ) ->
+    if ply.m_bIsPlayingTaunt
         if utaunt_allow_weapons\GetBool!
             return
 
@@ -587,19 +592,20 @@ Add "PlayerSwitchWeapon", addonName, ( ply ) ->
 
 do
 
-    :SetRenderAngles = PLAYER
     :Iterator = player
     curTime = 0
 
-    Add( "Think", addonName .. "::Think", ->
+    Add( "Think", addonName .. "::IsPlayingTaunt", ->
         curTime = CurTime!
         for _, ply in Iterator!
-            if isPlayingTaunt( ply )
-                ply.m_dLastPlayingTaunt = curTime
-                SetRenderAngles( ply, getRenderAngles( ply ) )
+            unless IsDormant( ply )
+                if isPlayingTaunt( ply )
+                    ply.m_dLastPlayingTaunt = curTime
+                    Run( "PlayerTauntThink", ply, true )
 
-            elseif isPlayingCTaunt( ply )
-                ply.m_dLastPlayingTaunt = curTime
+                elseif isPlayingCTaunt( ply )
+                    ply.m_dLastPlayingTaunt = curTime
+                    Run( "PlayerTauntThink", ply, false )
 
             if ply.m_dLastPlayingTaunt == nil
                 if ply.m_bIsPlayingTaunt == nil
@@ -613,6 +619,18 @@ do
                 continue
 
             ply.m_bIsPlayingTaunt = true
+            return
+
+    PRE_HOOK )
+
+do
+
+    :SetRenderAngles = PLAYER
+
+    Add( "UpdateAnimation", addonName .. "::RenderAngles", ( ply ) ->
+        if isPlayingTaunt( ply )
+            SetRenderAngles( ply, getRenderAngles( ply ) )
+            return
 
     PRE_HOOK )
 
@@ -624,8 +642,8 @@ do
 
     buttons = 0
 
-    Add( "StartCommand", addonName, ( ply, cmd ) ->
-        unless isPlayingAnyTaunt( ply )
+    Add( "StartCommand", addonName .. "::Movement", ( ply, cmd ) ->
+        unless ply.m_bIsPlayingTaunt
             return
 
         buttons = Run( "TauntStartCommand", ply, cmd, GetNW2Var( ply, "uTaunt-Name", "" ) )
@@ -695,7 +713,7 @@ do
     global IsInTaunt = ->
         return isInTaunt
 
-    Add( "InitPostEntity", addonName, ->
+    Add( "InitPostEntity", addonName .. "::Initialization", ->
         ply = LocalPlayer!
         ply.m_bIsLocalPlayer = true
         ply.m_bIsPlayingTaunt = false
@@ -708,8 +726,8 @@ do
 
     PRE_HOOK )
 
-    Add "HUDShouldDraw", addonName, ( name ) ->
-        if isInTaunt and name == "CHudWeaponSelection"
+    Add "HUDShouldDraw", addonName .. "::WeaponSelector", ( name ) ->
+        if isInTaunt and name == "CHudWeaponSelection" and not utaunt_allow_weapons\GetBool!
             return false
 
 do
@@ -717,39 +735,40 @@ do
     mins, maxs = Vector( -512, -512, 0 ), Vector( 512, 512, 512 )
     :Forward = FindMetaTable( "Angle" )
 
-    stopAudio = ( entity ) ->
-        channel = entity.m_bcUnknownTauntAudio
+    stopAudio = ( ply ) ->
+        channel = ply.m_bcUnknownTauntAudio
         if channel and channel\IsValid!
             channel\Stop!
 
-        entity.m_bcUnknownTauntAudio = nil
+        ply.m_bcUnknownTauntAudio = nil
 
     playStates = {
         [ GMOD_CHANNEL_PLAYING ]: true
         [ GMOD_CHANNEL_STALLED ]: true
     }
 
+    :Remove = hook
     boneID = 0
 
-    Add( "UnknownTauntSynced", addonName, ( entity, sequenceName, cycle, sequenceID, webAudio ) ->
-        mins[ 3 ] = entity\GetModelRenderBounds![ 3 ]
-        entity\SetRenderBounds( mins, maxs )
+    Add( "UnknownTauntSynced", addonName .. "::Sync", ( ply, sequenceName, cycle, sequenceID, webAudio ) ->
+        mins[ 3 ] = ply\GetModelRenderBounds![ 3 ]
+        ply\SetRenderBounds( mins, maxs )
 
-        unless webAudio
-            stopAudio( entity )
+        if not webAudio or IsDormant( ply )
+            stopAudio( ply )
             return
 
-        filePath = Run( "UnknownTauntSound", entity, sequenceName, cycle, SequenceDuration( entity, sequenceID ) or 0, sequenceID ) or webSounds[ sequenceName ]
+        filePath = Run( "UnknownTauntSound", ply, sequenceName, cycle, SequenceDuration( ply, sequenceID ) or 0, sequenceID ) or webSounds[ sequenceName ]
 
-        channel = entity.m_bcUnknownTauntAudio
+        channel = ply.m_bcUnknownTauntAudio
         if channel and channel\IsValid!
             unless filePath
-                entity.m_sUnknownTauntAudioFilePath = nil
-                entity.m_bcUnknownTauntAudio = nil
+                ply.m_sUnknownTauntAudioFilePath = nil
+                ply.m_bcUnknownTauntAudio = nil
                 channel\Stop!
                 return
 
-            if filePath == entity.m_sUnknownTauntAudioFilePath
+            if filePath == ply.m_sUnknownTauntAudioFilePath
                 length = channel\GetLength!
                 if length > 0
                     channel\SetTime( length * cycle )
@@ -759,8 +778,8 @@ do
 
                 return
 
-            entity.m_sUnknownTauntAudioFilePath = nil
-            entity.m_bcUnknownTauntAudio = nil
+            ply.m_sUnknownTauntAudioFilePath = nil
+            ply.m_bcUnknownTauntAudio = nil
             channel\Stop!
 
         unless filePath
@@ -770,33 +789,36 @@ do
         unless isURL or Exists( filePath, "GAME" )
             return
 
-        sound[ isURL and "PlayURL" or "PlayFile" ] filePath, "3d noplay noblock", ( channel ) ->
-            unless channel and channel\IsValid! and isValidTauntingPlayer( entity )
+        sound[ isURL and "PlayURL" or "PlayFile" ] filePath, "3d noplay noblock", ( newChannel ) ->
+            unless newChannel and newChannel\IsValid! and isValidTauntingPlayer( ply ) and not IsDormant( ply )
                 return
 
-            entity.m_sUnknownTauntAudioFilePath = filePath
-            entity.m_bcUnknownTauntAudio = channel
+            ply.m_sUnknownTauntAudioFilePath = filePath
+            ply.m_bcUnknownTauntAudio = newChannel
 
-            length = channel\GetLength!
+            length = newChannel\GetLength!
             if length > 0
-                channel\SetTime( length * cycle )
+                newChannel\SetTime( length * cycle )
 
-            channel\Play!
+            newChannel\Play!
 
-            Add "Think", channel, ->
-                unless isValidTauntingPlayer( entity )
-                    hook.Remove( "Think", channel )
-                    entity.m_sUnknownTauntAudioFilePath = nil
-                    entity.m_bcUnknownTauntAudio = nil
-                    channel\Stop!
+            Add "Think", newChannel, ->
+                if not isValidTauntingPlayer( ply ) or IsDormant( ply )
+                    Remove( "Think", newChannel )
+
+                    if IsValid( ply )
+                        ply.m_sUnknownTauntAudioFilePath = nil
+                        ply.m_bcUnknownTauntAudio = nil
+
+                    newChannel\Stop!
                     return
 
-                boneID = LookupBone( entity, "ValveBiped.Bip01_Head1" )
+                boneID = LookupBone( ply, "ValveBiped.Bip01_Head1" )
                 if boneID and boneID >= 0
-                    channel\SetPos( GetBonePosition( entity, boneID ), Forward( getRenderAngles( entity ) ) )
+                    newChannel\SetPos( GetBonePosition( ply, boneID ), Forward( getRenderAngles( ply ) ) )
                     return
 
-                channel\SetPos( entity\WorldSpaceCenter!, Forward( getRenderAngles( entity ) ) )
+                newChannel\SetPos( ply\WorldSpaceCenter!, Forward( getRenderAngles( ply ) ) )
                 return
 
             return
@@ -804,9 +826,9 @@ do
         return
     PRE_HOOK )
 
-    Add( "PlayerFinishedTaunt", addonName, ( entity ) ->
-        entity\SetRenderBounds( entity\GetModelRenderBounds! )
-        stopAudio( entity )
+    Add( "PlayerFinishedTaunt", addonName .. "::Cleanup", ( ply ) ->
+        ply\SetRenderBounds( ply\GetModelRenderBounds! )
+        stopAudio( ply )
         return
 
     PRE_HOOK )
@@ -815,101 +837,101 @@ do
 
     cycle = 0
 
-    Add( "EntityNetworkedVarChanged", addonName, ( entity, key, oldValue, value ) ->
-        unless IsValid( entity ) and entity\IsPlayer! and Alive( entity )
+    Add( "EntityNetworkedVarChanged", addonName .. "::Networking", ( ply, key, oldValue, value ) ->
+        unless IsValid( ply ) and ply\IsPlayer! and Alive( ply )
             return
 
         if key == "uTaunt-Name"
             if value == nil
-                if entity.m_bUsingUnknownTaunt
-                    entity.m_bUsingUnknownTaunt = false
-                    entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
-                    Run( "PlayerFinishedTaunt", entity, oldValue )
+                if ply.m_bUsingUnknownTaunt
+                    ply.m_bUsingUnknownTaunt = false
+                    ply\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
+                    Run( "PlayerFinishedTaunt", ply, oldValue )
 
                 return
 
-            sequenceID = LookupSequence( entity, value )
+            sequenceID = LookupSequence( ply, value )
             if sequenceID < 1
                 return
 
-            entity.m_bUsingUnknownTaunt = true
+            ply.m_bUsingUnknownTaunt = true
 
-            cycle = getCycle( entity, sequenceID )
-            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
-            Run( "UnknownTauntSynced", entity, value, cycle, sequenceID, GetNW2Var( entity, "uTaunt-WebAudio", false ) )
+            cycle = getCycle( ply, sequenceID )
+            ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
+            Run( "UnknownTauntSynced", ply, value, cycle, sequenceID, GetNW2Var( ply, "uTaunt-WebAudio", false ) )
             return
 
         if key == "uTaunt-Start"
-            sequenceName = GetNW2Var( entity, "uTaunt-Name" )
+            sequenceName = GetNW2Var( ply, "uTaunt-Name" )
             if sequenceName == nil
-                if entity.m_bUsingUnknownTaunt
-                    entity.m_bUsingUnknownTaunt = false
-                    entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
-                    Run( "PlayerFinishedTaunt", entity, sequenceName )
+                if ply.m_bUsingUnknownTaunt
+                    ply.m_bUsingUnknownTaunt = false
+                    ply\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
+                    Run( "PlayerFinishedTaunt", ply, sequenceName )
 
                 return
 
-            sequenceID = LookupSequence( entity, sequenceName )
+            sequenceID = LookupSequence( ply, sequenceName )
             if sequenceID < 1
                 return
 
-            entity.m_bUsingUnknownTaunt = true
+            ply.m_bUsingUnknownTaunt = true
 
-            cycle = getCycle( entity, sequenceID, value )
-            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
-            Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID, GetNW2Var( entity, "uTaunt-WebAudio", false ) )
+            cycle = getCycle( ply, sequenceID, value )
+            ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
+            Run( "UnknownTauntSynced", ply, sequenceName, cycle, sequenceID, GetNW2Var( ply, "uTaunt-WebAudio", false ) )
             return
 
         if key == "uTaunt-WebAudio"
-            sequenceName = GetNW2Var( entity, "uTaunt-Name" )
+            sequenceName = GetNW2Var( ply, "uTaunt-Name" )
             if sequenceName == nil
-                if entity.m_bUsingUnknownTaunt
-                    entity.m_bUsingUnknownTaunt = false
-                    entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
-                    Run( "PlayerFinishedTaunt", entity, sequenceName )
+                if ply.m_bUsingUnknownTaunt
+                    ply.m_bUsingUnknownTaunt = false
+                    ply\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
+                    Run( "PlayerFinishedTaunt", ply, sequenceName )
 
                 return
 
-            sequenceID = LookupSequence( entity, sequenceName )
+            sequenceID = LookupSequence( ply, sequenceName )
             if sequenceID < 1
                 return
 
-            entity.m_bUsingUnknownTaunt = true
+            ply.m_bUsingUnknownTaunt = true
 
-            cycle = getCycle( entity, sequenceID )
-            entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
-            Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID, value == true )
+            cycle = getCycle( ply, sequenceID )
+            ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
+            Run( "UnknownTauntSynced", ply, sequenceName, cycle, sequenceID, value == true )
             return
 
     PRE_HOOK )
 
-    Add( "NotifyShouldTransmit", addonName, ( entity, shouldtransmit ) ->
-        unless shouldtransmit and IsValid( entity ) and entity\IsPlayer! and Alive( entity )
-            if entity.m_bUsingUnknownTaunt
-                entity.m_bUsingUnknownTaunt = false
-                entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
-                Run( "PlayerFinishedTaunt", entity, oldValue )
+    Add( "NotifyShouldTransmit", addonName .. "::PVS", ( ply, shouldtransmit ) ->
+        unless shouldtransmit and IsValid( ply ) and ply\IsPlayer! and Alive( ply )
+            if ply.m_bUsingUnknownTaunt
+                ply.m_bUsingUnknownTaunt = false
+                ply\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
+                Run( "PlayerFinishedTaunt", ply, oldValue )
 
             return
 
-        sequenceName = GetNW2Var( entity, "uTaunt-Name" )
+        sequenceName = GetNW2Var( ply, "uTaunt-Name" )
         if sequenceName == nil
-            if entity.m_bUsingUnknownTaunt
-                entity.m_bUsingUnknownTaunt = false
-                entity\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
-                Run( "PlayerFinishedTaunt", entity, oldValue )
+            if ply.m_bUsingUnknownTaunt
+                ply.m_bUsingUnknownTaunt = false
+                ply\AnimResetGestureSlot( GESTURE_SLOT_CUSTOM )
+                Run( "PlayerFinishedTaunt", ply, oldValue )
 
             return
 
-        sequenceID = LookupSequence( entity, sequenceName )
+        sequenceID = LookupSequence( ply, sequenceName )
         if sequenceID < 1
             return
 
-        entity.m_bUsingUnknownTaunt = true
+        ply.m_bUsingUnknownTaunt = true
 
-        cycle = getCycle( entity, sequenceID )
-        entity\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
-        Run( "UnknownTauntSynced", entity, sequenceName, cycle, sequenceID )
+        cycle = getCycle( ply, sequenceID )
+        ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, cycle, true )
+        Run( "UnknownTauntSynced", ply, sequenceName, cycle, sequenceID )
         return
 
     PRE_HOOK )
@@ -954,7 +976,7 @@ do
     commmands = { "taunt", "dance", "utaunt", "udance" }
     allowedChars = { "/": true, "!": true }
 
-    Add "OnPlayerChat", addonName, ( ply, text, isTeam, isDead ) ->
+    Add "OnPlayerChat", addonName .. "::ChatCommands", ( ply, text, isTeam, isDead ) ->
         if isDead or isTeam or not ply.m_bIsLocalPlayer
             return
 
@@ -1014,7 +1036,7 @@ do
         "zombie_attack_special"
     }
 
-    Add "UnknownTauntMenuSetup", "Default Sequences", ( ply, add ) ->
+    Add "UnknownTauntMenuSetup", addonName .. "::DefaultSequences", ( ply, add ) ->
         sequences, sequencesCount = {}, 0
         for sequenceName in *taunts
             if LookupSequence( ply, sequenceName ) < 0
