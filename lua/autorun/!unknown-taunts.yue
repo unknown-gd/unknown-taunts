@@ -106,8 +106,6 @@ do
     lib.SoundExists = soundExists
 
     findSound = ( sequenceName ) ->
-        sequenceName = lower( sequenceName )
-
         if sounds[ sequenceName ]
             return sounds[ sequenceName ]
 
