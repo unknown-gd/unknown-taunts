@@ -109,9 +109,9 @@ do
                 if bone and bone >= 0
                     trace.start = GetBonePosition( ply, bone )
                 else
-                    trace.start = EyePos!
+                    trace.start = ply\EyePos!
             else
-                trace.start = EyePos!
+                trace.start = ply\EyePos!
 
             trace.endpos = trace.start - Forward( viewAngles ) * distance
             TraceHull( trace )
