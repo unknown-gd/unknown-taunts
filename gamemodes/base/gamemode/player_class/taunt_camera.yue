@@ -1,4 +1,10 @@
-CAM = TauntCamera and TauntCamera! or {}
+AddCSLuaFile!
+
+CAM = {
+    ShouldDrawLocalPlayer: ->
+    CreateMove: ->
+    CalcView: ->
+}
 
 global TauntCamera = ->
     return CAM
