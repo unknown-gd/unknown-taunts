@@ -534,6 +534,28 @@ if SERVER
 
     do
 
+        utaunt_gamemode_override = CreateConVar( "utaunt_gamemode_override", "0", bor( FCVAR_ARCHIVE, FCVAR_NOTIFY ), "Overrides gamemode taunt functions to allow players use taunts.", 0, 1 )
+
+        changeOverride = ( _, __, value ) ->
+            if value == "1"
+                GAMEMODE.__PlayerShouldTaunt = GAMEMODE.__PlayerShouldTaunt or GAMEMODE.PlayerShouldTaunt
+                GAMEMODE.PlayerShouldTaunt = ( ply, act ) =>
+                    if not ( Alive( ply ) and ply\IsOnGround! ) or ply\Crouching! or ply\InVehicle! or ply\GetMoveType! ~= MOVETYPE_WALK or ply\WaterLevel! > 1
+                        return false
+
+                    return true
+
+            else
+                GAMEMODE.PlayerShouldTaunt = GAMEMODE.__PlayerShouldTaunt or GAMEMODE.PlayerShouldTaunt
+
+        cvars.AddChangeCallback utaunt_gamemode_override\GetName!, changeOverride, addonName
+
+        timer.Simple 0.25, ->
+            changeOverride( nil, nil, utaunt_gamemode_override\GetString! )
+            return
+
+    do
+
         :GetSequenceActivity = ENTITY
 
         acts = {
