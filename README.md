@@ -45,6 +45,7 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - `Angle` uTaunt.GetRenderAngles( `Player` ply ) - returns player render angles as **Angle**.
 
 ### Client Functions
+- `boolean` IsInTaunt() - returns **true** if local player is taunting.
 - uTaunt.ToggleMenu( `Player` ply ) - toggles uTaunt menu.
 - `string` uTaunt.GetPhrase( `string` placeholder ) - returns localized phrase as **string**.
 - `boolean` uTaunt.IsAudioEnabled() - returns **true** if sequences audio is enabled.

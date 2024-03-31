@@ -738,35 +738,35 @@ getPhrase = ( placeholder ) ->
 
 lib.GetPhrase = getPhrase
 
-do
+localPlayer = LocalPlayer!
+isInTaunt = false
 
-    ply = LocalPlayer!
-    isInTaunt = false
+global IsInTaunt = ->
+    return isInTaunt
 
-    global IsInTaunt = ->
-        return isInTaunt
+Add( "InitPostEntity", addonName .. "::Initialization", ->
+    localPlayer = LocalPlayer!
+    localPlayer.m_bIsLocalPlayer = true
+    localPlayer.m_bIsPlayingTaunt = false
+    lib.Player = localPlayer
 
-    Add( "InitPostEntity", addonName .. "::Initialization", ->
-        ply = LocalPlayer!
-        ply.m_bIsLocalPlayer = true
-        ply.m_bIsPlayingTaunt = false
+PRE_HOOK )
 
-    PRE_HOOK )
+Add( "Think", addonName .. "::IsInTaunt", ->
+    if localPlayer and IsValid( localPlayer )
+        isInTaunt = localPlayer.m_bIsPlayingTaunt
 
-    Add( "Think", addonName .. "::IsInTaunt", ->
-        if ply and IsValid( ply )
-            isInTaunt = ply.m_bIsPlayingTaunt
+PRE_HOOK )
 
-    PRE_HOOK )
+Add "HUDShouldDraw", addonName .. "::WeaponSelector", ( name ) ->
+    if isInTaunt and name == "CHudWeaponSelection" and not utaunt_allow_weapons\GetBool!
+        return false
 
-    Add "HUDShouldDraw", addonName .. "::WeaponSelector", ( name ) ->
-        if isInTaunt and name == "CHudWeaponSelection" and not utaunt_allow_weapons\GetBool!
-            return false
+:Forward = FindMetaTable( "Angle" )
 
 do
 
     mins, maxs = Vector( -512, -512, 0 ), Vector( 512, 512, 512 )
-    :Forward = FindMetaTable( "Angle" )
 
     stopAudio = ( ply ) ->
         channel = ply.m_bcUnknownTauntAudio
@@ -1422,3 +1422,158 @@ list.Set "DesktopWindows", "utaunt-menu", {
 
         RunConsoleCommand( "utaunts" )
 }
+
+do
+
+    cl_taunt_headcam = CreateClientConVar( "cl_taunt_headcam", "1", true, false, "Makes player's head the center of the screen.", 0, 1 )
+    FrameTime = FrameTime
+
+    viewAngles = nil
+    eyeAngles = nil
+    distance = nil
+
+    traceResult = {}
+    trace = {
+        mins: Vector( -8, -8, -8 )
+        maxs: Vector( 8, 8, 8 )
+        output: traceResult
+        mask: MASK_SHOT
+        filter: ( entity ) ->
+            return entity.m_bIsPlayingTaunt ~= true
+    }
+
+    do
+
+        :GetViewEntity = PLAYER
+        LerpVector = LerpVector
+        LerpAngle = LerpAngle
+        fraction = 0
+
+        Add "ShouldDrawLocalPlayer", addonName .. "::Compatibility", ->
+            if isInTaunt or fraction > 0
+                return true
+
+        view = { drawviewer: true }
+
+        Add "CalcView", addonName .. "::Compatibility", ( ply, origin, angles ) ->
+            unless ( isInTaunt or fraction > 0 ) and Alive( ply ) and GetViewEntity( ply ) == ply
+                if eyeAngles
+                    eyeAngles = nil
+
+                if viewAngles
+                    viewAngles = nil
+
+                if distance
+                    distance = nil
+
+                return
+
+            unless viewAngles
+                viewAngles = Angle( angles )
+                viewAngles[ 1 ], viewAngles[ 3 ] = 0, 0
+
+            unless distance
+                distance = 128
+
+            targetOrigin = nil
+            if traceResult.HitPos
+                targetOrigin = traceResult.HitPos + traceResult.HitNormal
+            else
+                targetOrigin = origin
+
+            unless eyeAngles
+                eyeAngles = Angle( viewAngles )
+
+            if isInTaunt
+                if fraction < 1
+                    fraction += FrameTime! * 4
+
+                    if fraction > 1
+                        fraction = 1
+
+                    view.origin = LerpVector( fraction, origin, targetOrigin )
+                    view.angles = LerpAngle( fraction, eyeAngles, viewAngles )
+                    return view
+
+            elseif fraction > 0
+                fraction -= FrameTime! * 2
+
+                if fraction < 0
+                    fraction = 0
+
+                view.origin = LerpVector( fraction, origin, targetOrigin )
+                view.angles = LerpAngle( fraction, eyeAngles, viewAngles )
+                return view
+
+            view.origin = targetOrigin
+            view.angles = viewAngles
+            return view
+
+    do
+
+        :SetViewAngles, :GetMouseWheel = FindMetaTable( "CUserCmd" )
+
+        Add( "CreateMove", addonName .. "::Compatibility", ( cmd ) ->
+            if eyeAngles
+                SetViewAngles( cmd, eyeAngles )
+                return
+
+        PRE_HOOK )
+
+        frameTime, wheel = 0, 0
+
+        Add( "InputMouseApply", addonName .. "::Camera", ( cmd, x, y ) ->
+            if viewAngles
+                frameTime = FrameTime!
+
+                if y ~= 0
+                    viewAngles[ 1 ] += y * frameTime
+
+                    if viewAngles[ 1 ] > 90
+                        viewAngles[ 1 ] = 90
+
+                    elseif viewAngles[ 1 ] < -90
+                        viewAngles[ 1 ] = -90
+
+                if x ~= 0
+                    viewAngles[ 2 ] -= x * frameTime
+
+                    if viewAngles[ 2 ] > 180
+                        viewAngles[ 2 ] = -180
+
+                    elseif viewAngles[ 2 ] < -180
+                        viewAngles[ 2 ] = 180
+
+            if distance
+                wheel = GetMouseWheel( cmd )
+                if wheel ~= 0
+                    distance = distance - wheel * ( distance * 0.1 )
+
+                    if distance < 16
+                        distance = 16
+
+                    elseif distance > 1024
+                        distance = 1024
+
+        PRE_HOOK )
+
+    do
+
+        :TraceHull = util
+
+        Add( "Think", addonName .. "::Camera", ->
+            if viewAngles and distance
+                if cl_taunt_headcam\GetBool!
+                    bone = LookupBone( localPlayer, "ValveBiped.Bip01_Head1" )
+                    if bone and bone >= 0
+                        trace.start = GetBonePosition( localPlayer, bone )
+                    else
+                        trace.start = localPlayer\EyePos!
+                else
+                    trace.start = localPlayer\EyePos!
+
+                trace.endpos = trace.start - Forward( viewAngles ) * distance
+                TraceHull( trace )
+                return
+
+        PRE_HOOK )
