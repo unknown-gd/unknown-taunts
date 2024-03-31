@@ -8,17 +8,7 @@ By default addon does not contain animations from Custom Taunt, you can install 
 - **Reliable** - all sequences are synchronized both on server and client, implemented work with network and PVS.
 - **Co-op Dances** - addon supports creating co-dances, as an example we have 2 dances from MMD ( Custom Taunt ).
 - **Support** - addon will receive all necessary patches and updates during the year.
-
-### Commands
-- **utaunt** - *executes the sequence specified by first argument or stops current sequence if nothing is specified.* **( SERVER )**
-- **utaunts** - *opens/closes UI, as well as stops current sequence if it is running.* **( CLIENT )**
-- **utaunt_list** - *list of all available sequences with real names and durations.* **( CLIENT )**
-
-### ConVars
-- **utaunt_allow_weapon** - *Allow players to hold weapons in their hands while taunting.* **( SERVER )**
-- **utaunt_collisions** - *Allow players to collide with each other while taunting.* **( SERVER )**
-- **utaunt_coop_distance** - *Minimum required distance to join in a co-op taunt.* **( SERVER )**
-- **utaunt_audio** - *Enables playing audio for uTaunts.** **( CLIENT )**
+- **Modifiable** - addon lets you replace its menu and individual playback control by other scripts.
 
 ## Where is Lua code?
 Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua code can be found in [releases](https://github.com/PrikolMen/unknown-taunts/releases) and [lua branch](https://github.com/PrikolMen/unknown-taunts/tree/lua), or you can compile it yourself using compiled [Yuescript Compiler](https://github.com/pigpigyyy/Yuescript/releases/latest).
