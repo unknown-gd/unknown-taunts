@@ -480,7 +480,8 @@ if SERVER
         COLLISION_GROUP_PASSABLE_DOOR = COLLISION_GROUP_PASSABLE_DOOR
         :GetCollisionGroup = ENTITY
         :Crouching = PLAYER
-        sequenceID = 0
+
+        sequenceID, cycle = 0, 0
 
         Add( "PlayerTauntThink", addonName .. "::Thinking", ( ply, isUTaunt ) ->
             unless isUTaunt
@@ -591,33 +592,45 @@ Add "PlayerSwitchWeapon", addonName .. "::WeaponSwitch", ( ply ) ->
 do
 
     :Iterator = player
+
+    players = {}
+
+    Add( "EntityRemoved", addonName .. "::PlayerRemoved", ( entity ) ->
+        players[ entity ] = nil
+
+    PRE_HOOK )
+
     curTime = 0
 
     Add( "Think", addonName .. "::IsPlayingTaunt", ->
         curTime = CurTime!
+
         for _, ply in Iterator!
-            unless IsDormant( ply )
-                if isPlayingTaunt( ply )
-                    ply.m_dLastPlayingTaunt = curTime
-                    Run( "PlayerTauntThink", ply, true )
+            if IsDormant( ply )
+                if ply.m_bIsPlayingTaunt
+                    ply.m_bIsPlayingTaunt = false
 
-                elseif isPlayingCTaunt( ply )
-                    ply.m_dLastPlayingTaunt = curTime
-                    Run( "PlayerTauntThink", ply, false )
+                continue
 
-            if ply.m_dLastPlayingTaunt == nil
+            if isPlayingTaunt( ply )
+                players[ ply ] = curTime
+                Run( "PlayerTauntThink", ply, true )
+
+            elseif isPlayingCTaunt( ply )
+                players[ ply ] = curTime
+                Run( "PlayerTauntThink", ply, false )
+
+            unless players[ ply ]
                 if ply.m_bIsPlayingTaunt == nil
                     ply.m_bIsPlayingTaunt = false
 
                 continue
 
-            if ( curTime - ply.m_dLastPlayingTaunt ) > 0.1
-                ply.m_dLastPlayingTaunt = nil
+            if ( curTime - players[ ply ] ) > 0.1
                 ply.m_bIsPlayingTaunt = false
-                continue
-
-            ply.m_bIsPlayingTaunt = true
-            return
+                players[ ply ] = false
+            else
+                ply.m_bIsPlayingTaunt = true
 
     PRE_HOOK )
 
@@ -645,7 +658,7 @@ do
             return
 
         buttons = Run( "TauntStartCommand", ply, cmd, GetNW2Var( ply, "uTaunt-Name", "" ) )
-        unless isnumber( buttons )
+        unless buttons and isnumber( buttons )
             buttons = 0
 
         if KeyDown( cmd, IN_JUMP )
