@@ -167,18 +167,22 @@ isValidTauntingPlayer = ( ply ) ->
 
 lib.IsValidTauntingPlayer = isValidTauntingPlayer
 
-utaunt_allow_weapons, utaunt_allow_movement, utaunt_allow_attack = nil, nil, nil
+CONVAR = FindMetaTable( "ConVar" )
+:GetFloat, :GetBool = CONVAR
+
+utaunt_allow_weapons, utaunt_allow_movement, utaunt_allow_attack, utaunt_audio_volume = nil, nil, nil, nil
 do
 
     flags = bor( FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY )
     utaunt_allow_weapons = CreateConVar( "utaunt_allow_weapons", "0", flags, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
     utaunt_allow_movement = CreateConVar( "utaunt_allow_movement", "0", flags, "Allow players to move while taunting.", 0, 1 )
     utaunt_allow_attack = CreateConVar( "utaunt_allow_attack", "0", flags, "Allow players to attack while taunting.", 0, 1 )
+    utaunt_audio_volume = CreateConVar( "utaunt_audio_volume", "1", flags, "Volume of taunts audio.", 0, 10 )
 
-    utaunt_sound_override = CreateConVar( "utaunt_sound_override", "", flags, "Overrides the sound of all taunts to the specified one. Leave it blank so it won't be used." )
+    utaunt_audio_override = CreateConVar( "utaunt_audio_override", "", flags, "Overrides the audio of all taunts to the specified one. Leave it blank so it won't be used." )
 
     Add "UnknownTauntSound", addonName .. "::SoundOverride", ->
-        value = utaunt_sound_override\GetString!
+        value = utaunt_audio_override\GetString!
         if #value == 0
             return
 
@@ -263,7 +267,7 @@ if SERVER
 
             -- Origin
             origin = ply.m_vUnknownTauntOrigin
-            if utaunt_real_origin\GetBool!
+            if GetBool( utaunt_real_origin )
                 leftFoot, rightFoot = LookupBone( ply, "ValveBiped.Bip01_L_Foot" ), LookupBone( ply, "ValveBiped.Bip01_R_Foot" )
                 if leftFoot > 0 and rightFoot > 0
                     origin = ( GetBonePosition( ply, leftFoot ) + GetBonePosition( ply, rightFoot ) ) / 2
@@ -391,12 +395,12 @@ if SERVER
 
         SetNW2Var( ply, "uTaunt-Angles", startAngles )
 
-        unless utaunt_collisions\GetBool!
+        unless GetBool( utaunt_collisions )
             ply.m_iUnknownTauntCollisionGroup = ply\GetCollisionGroup!
             ply.m_bUnknownTauntAvoidPlayers = ply\GetAvoidPlayers!
             ply\SetAvoidPlayers( false )
 
-        unless utaunt_allow_weapons\GetBool!
+        unless GetBool( utaunt_allow_weapons )
             weapon = ply\GetActiveWeapon!
             if weapon and IsValid( weapon )
                 ply.m_sUnknownTauntWeapon = weapon\GetClass!
@@ -478,10 +482,11 @@ if SERVER
     do
 
         COLLISION_GROUP_PASSABLE_DOOR = COLLISION_GROUP_PASSABLE_DOOR
+        :GetVolume = FindMetaTable( "CSoundPatch" )
         :GetCollisionGroup = ENTITY
         :Crouching = PLAYER
 
-        sequenceID, cycle = 0, 0
+        sequenceID, cycle, volume = 0, 0, 0
 
         Add( "PlayerTauntThink", addonName .. "::Thinking", ( ply, isUTaunt ) ->
             unless isUTaunt
@@ -509,7 +514,13 @@ if SERVER
                 lib.Finish( ply, false )
                 return
 
-            if utaunt_collisions\GetBool!
+            cSound = ply.m_csUnknownTauntSound
+            if cSound
+                volume = GetFloat( utaunt_audio_volume )
+                if GetVolume( cSound ) ~= volume
+                    cSound\ChangeVolume( volume, 0 )
+
+            if GetBool( utaunt_collisions )
                 return
 
             if GetCollisionGroup( ply ) == COLLISION_GROUP_PASSABLE_DOOR
@@ -606,7 +617,7 @@ if SERVER
 
 Add "PlayerSwitchWeapon", addonName .. "::WeaponSwitch", ( ply ) ->
     if ply.m_bIsPlayingTaunt
-        if utaunt_allow_weapons\GetBool!
+        if GetBool( utaunt_allow_weapons )
             return
 
         return true
@@ -692,10 +703,10 @@ do
         if KeyDown( cmd, IN_DUCK )
             RemoveKey( cmd, IN_DUCK )
 
-        unless utaunt_allow_movement\GetBool!
+        unless GetBool( utaunt_allow_movement )
             ClearMovement( cmd )
 
-        if utaunt_allow_attack\GetBool!
+        if GetBool( utaunt_allow_attack )
             if KeyDown( cmd, IN_ATTACK ) and band( buttons, IN_ATTACK ) == 0
                 buttons = bor( buttons, IN_ATTACK )
 
@@ -718,14 +729,14 @@ do
     utaunt_audio = CreateClientConVar( "utaunt_audio", "1", true, true, "Enables audio playback for taunts that support this feature.", 0, 1 )
 
     lib.IsAudioEnabled = ->
-        return utaunt_audio\GetBool!
+        return GetBool( utaunt_audio )
 
 do
 
     utaunt_coop = CreateClientConVar( "utaunt_coop", "1", true, true, "If enabled player will automatically join/synchronize with dance of another player nearby.", 0, 1 )
 
     lib.IsCoopEnabled = ->
-        return utaunt_coop\GetBool!
+        return GetBool( utaunt_coop )
 
 :GetPhrase = language
 
@@ -759,7 +770,7 @@ Add( "Think", addonName .. "::IsInTaunt", ->
 PRE_HOOK )
 
 Add "HUDShouldDraw", addonName .. "::WeaponSelector", ( name ) ->
-    if isInTaunt and name == "CHudWeaponSelection" and not utaunt_allow_weapons\GetBool!
+    if isInTaunt and name == "CHudWeaponSelection" and not GetBool( utaunt_allow_weapons )
         return false
 
 :Forward = FindMetaTable( "Angle" )
@@ -767,6 +778,7 @@ Add "HUDShouldDraw", addonName .. "::WeaponSelector", ( name ) ->
 do
 
     mins, maxs = Vector( -512, -512, 0 ), Vector( 512, 512, 512 )
+    :GetVolume, :SetPos = FindMetaTable( "IGModAudioChannel" )
 
     stopAudio = ( ply ) ->
         channel = ply.m_bcUnknownTauntAudio
@@ -780,8 +792,8 @@ do
         [ GMOD_CHANNEL_STALLED ]: true
     }
 
+    boneID, volume = 0, 0
     :Remove = hook
-    boneID = 0
 
     Add( "UnknownTauntSynced", addonName .. "::Sync", ( ply, sequenceName, cycle, sequenceID, webAudio ) ->
         mins[ 3 ] = ply\GetModelRenderBounds![ 3 ]
@@ -848,10 +860,17 @@ do
 
                 boneID = LookupBone( ply, "ValveBiped.Bip01_Head1" )
                 if boneID and boneID >= 0
-                    newChannel\SetPos( GetBonePosition( ply, boneID ), Forward( getRenderAngles( ply ) ) )
+                    SetPos( newChannel, GetBonePosition( ply, boneID ), Forward( getRenderAngles( ply ) ) )
                     return
 
-                newChannel\SetPos( ply\WorldSpaceCenter!, Forward( getRenderAngles( ply ) ) )
+                volume = GetFloat( utaunt_audio_volume )
+                if volume > 1
+                    volume = 1
+
+                if GetVolume( newChannel ) ~= volume
+                    newChannel\SetVolume( volume )
+
+                SetPos( newChannel, ply\WorldSpaceCenter!, Forward( getRenderAngles( ply ) ) )
                 return
 
             return
@@ -1341,7 +1360,7 @@ do
                 combo.OnSelect = ( _, __, ___, name ) ->
                     RunConsoleCommand( "utaunt", name )
 
-                    if utaunt_menu_auto_close\GetBool!
+                    if GetBool( utaunt_menu_auto_close )
                         @Close!
                         return
 
@@ -1563,7 +1582,7 @@ do
 
         Add( "Think", addonName .. "::Camera", ->
             if viewAngles and distance
-                if cl_taunt_headcam\GetBool!
+                if GetBool( cl_taunt_headcam )
                     bone = LookupBone( localPlayer, "ValveBiped.Bip01_Head1" )
                     if bone and bone >= 0
                         trace.start = GetBonePosition( localPlayer, bone )
