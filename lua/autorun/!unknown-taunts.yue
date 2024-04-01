@@ -517,6 +517,9 @@ if SERVER
             cSound = ply.m_csUnknownTauntSound
             if cSound
                 volume = GetFloat( utaunt_audio_volume )
+                if volume > 1
+                    volume = 1
+
                 if GetVolume( cSound ) ~= volume
                     cSound\ChangeVolume( volume, 0 )
 
@@ -792,8 +795,8 @@ do
         [ GMOD_CHANNEL_STALLED ]: true
     }
 
-    boneID, volume = 0, 0
     :Remove = hook
+    boneID = 0
 
     Add( "UnknownTauntSynced", addonName .. "::Sync", ( ply, sequenceName, cycle, sequenceID, webAudio ) ->
         mins[ 3 ] = ply\GetModelRenderBounds![ 3 ]
@@ -858,17 +861,13 @@ do
                     newChannel\Stop!
                     return
 
+                if GetVolume( newChannel ) ~= GetFloat( utaunt_audio_volume )
+                    newChannel\SetVolume( GetFloat( utaunt_audio_volume ) )
+
                 boneID = LookupBone( ply, "ValveBiped.Bip01_Head1" )
                 if boneID and boneID >= 0
                     SetPos( newChannel, GetBonePosition( ply, boneID ), Forward( getRenderAngles( ply ) ) )
                     return
-
-                volume = GetFloat( utaunt_audio_volume )
-                if volume > 1
-                    volume = 1
-
-                if GetVolume( newChannel ) ~= volume
-                    newChannel\SetVolume( volume )
 
                 SetPos( newChannel, ply\WorldSpaceCenter!, Forward( getRenderAngles( ply ) ) )
                 return
