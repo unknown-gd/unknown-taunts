@@ -170,19 +170,19 @@ lib.IsValidTauntingPlayer = isValidTauntingPlayer
 CONVAR = FindMetaTable( "ConVar" )
 :GetInt, :GetFloat, :GetBool = CONVAR
 
-utaunt_allow_weapons, utaunt_allow_movement, utaunt_allow_attack, utaunt_audio_volume = nil, nil, nil, nil
+sv_utaunt_allow_weapons, sv_utaunt_allow_movement, sv_utaunt_allow_attack, sv_utaunt_audio_volume = nil, nil, nil, nil
 do
 
     flags = bor( FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY )
-    utaunt_allow_weapons = CreateConVar( "sv_utaunt_allow_weapons", "0", flags, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
-    utaunt_allow_movement = CreateConVar( "sv_utaunt_allow_movement", "0", flags, "Allow players to move while taunting.", 0, 1 )
-    utaunt_allow_attack = CreateConVar( "sv_utaunt_allow_attack", "0", flags, "Allow players to attack while taunting.", 0, 1 )
-    utaunt_audio_volume = CreateConVar( "sv_utaunt_audio_volume", "1", flags, "Volume of taunts audio.", 0, 10 )
+    sv_utaunt_allow_weapons = CreateConVar( "sv_utaunt_allow_weapons", "0", flags, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
+    sv_utaunt_allow_movement = CreateConVar( "sv_utaunt_allow_movement", "0", flags, "Allow players to move while taunting.", 0, 1 )
+    sv_utaunt_allow_attack = CreateConVar( "sv_utaunt_allow_attack", "0", flags, "Allow players to attack while taunting.", 0, 1 )
+    sv_utaunt_audio_volume = CreateConVar( "sv_utaunt_audio_volume", "1", flags, "Volume of taunts audio.", 0, 10 )
 
-    utaunt_audio_override = CreateConVar( "sv_utaunt_audio_override", "", flags, "Overrides the audio of all taunts to the specified one. Leave it blank so it won't be used." )
+    sv_utaunt_audio_override = CreateConVar( "sv_utaunt_audio_override", "", flags, "Overrides the audio of all taunts to the specified one. Leave it blank so it won't be used." )
 
     Add "UnknownTauntSound", addonName .. "::SoundOverride", ->
-        value = utaunt_audio_override\GetString!
+        value = sv_utaunt_audio_override\GetString!
         if #value == 0
             return
 
@@ -228,14 +228,14 @@ if SERVER
     lib.IsLoopingEnabled = ( ply ) ->
         return GetInfo( ply, "cl_utaunt_loop" ) == "1"
 
-    utaunt_menu_key, utaunt_real_origin, utaunt_coop_distance, utaunt_collisions = nil, nil, nil, nil
+    sv_utaunt_menu_key, sv_utaunt_real_origin, sv_utaunt_coop_distance, sv_utaunt_collisions = nil, nil, nil, nil
     do
 
         flags = bor( FCVAR_ARCHIVE, FCVAR_NOTIFY )
-        utaunt_menu_key = CreateConVar( "sv_utaunt_menu_key", KEY_I, flags, "Default key to open menu of unknown taunts, uses keys from https://wiki.facepunch.com/gmod/Enums/KEY", 0, 512 )
-        utaunt_real_origin = CreateConVar( "sv_utaunt_real_origin", "0", flags, "Uses the player's real position instead of initial position at the end of taunt.", 0, 1 )
-        utaunt_coop_distance = CreateConVar( "sv_utaunt_coop_distance", "512", flags, "Minimum required distance to join in a co-op taunt.", 0, 16384 )
-        utaunt_collisions = CreateConVar( "sv_utaunt_collisions", "0", flags, "Allow players to collide with each other while taunting.", 0, 1 )
+        sv_utaunt_menu_key = CreateConVar( "sv_utaunt_menu_key", KEY_I, flags, "Default key to open menu of unknown taunts, uses keys from https://wiki.facepunch.com/gmod/Enums/KEY", 0, 512 )
+        sv_utaunt_real_origin = CreateConVar( "sv_utaunt_real_origin", "0", flags, "Uses the player's real position instead of initial position at the end of taunt.", 0, 1 )
+        sv_utaunt_coop_distance = CreateConVar( "sv_utaunt_coop_distance", "512", flags, "Minimum required distance to join in a co-op taunt.", 0, 16384 )
+        sv_utaunt_collisions = CreateConVar( "sv_utaunt_collisions", "0", flags, "Allow players to collide with each other while taunting.", 0, 1 )
 
     :GetModel, :SetCollisionGroup = ENTITY
 
@@ -270,7 +270,7 @@ if SERVER
 
             -- Origin
             origin = ply.m_vUnknownTauntOrigin
-            if GetBool( utaunt_real_origin )
+            if GetBool( sv_utaunt_real_origin )
                 leftFoot, rightFoot = LookupBone( ply, "ValveBiped.Bip01_L_Foot" ), LookupBone( ply, "ValveBiped.Bip01_R_Foot" )
                 if leftFoot > 0 and rightFoot > 0
                     origin = ( GetBonePosition( ply, leftFoot ) + GetBonePosition( ply, rightFoot ) ) / 2
@@ -349,8 +349,8 @@ if SERVER
     :DistToSqr = FindMetaTable( "Vector" )
     :Iterator = player
 
-    maxDistance = GetInt( utaunt_coop_distance ) ^ 2
-    cvars.AddChangeCallback( utaunt_coop_distance\GetName!, ( _, __, value ) ->
+    maxDistance = GetInt( sv_utaunt_coop_distance ) ^ 2
+    cvars.AddChangeCallback( sv_utaunt_coop_distance\GetName!, ( _, __, value ) ->
         maxDistance = ( tonumber( value ) or 0 ) ^ 2
     addonName )
 
@@ -409,12 +409,12 @@ if SERVER
 
         SetNW2Var( ply, "uTaunt-Angles", startAngles )
 
-        unless GetBool( utaunt_collisions )
+        unless GetBool( sv_utaunt_collisions )
             ply.m_iUnknownTauntCollisionGroup = ply\GetCollisionGroup!
             ply.m_bUnknownTauntAvoidPlayers = ply\GetAvoidPlayers!
             ply\SetAvoidPlayers( false )
 
-        unless GetBool( utaunt_allow_weapons )
+        unless GetBool( sv_utaunt_allow_weapons )
             weapon = ply\GetActiveWeapon!
             if weapon and IsValid( weapon )
                 ply.m_sUnknownTauntWeapon = weapon\GetClass!
@@ -530,14 +530,14 @@ if SERVER
 
             cSound = ply.m_csUnknownTauntSound
             if cSound
-                volume = GetFloat( utaunt_audio_volume )
+                volume = GetFloat( sv_utaunt_audio_volume )
                 if volume > 1
                     volume = 1
 
                 if GetVolume( cSound ) ~= volume
                     cSound\ChangeVolume( volume, 0 )
 
-            if GetBool( utaunt_collisions )
+            if GetBool( sv_utaunt_collisions )
                 return
 
             if GetCollisionGroup( ply ) == COLLISION_GROUP_PASSABLE_DOOR
@@ -562,7 +562,7 @@ if SERVER
 
     do
 
-        utaunt_gamemode_override = CreateConVar( "sv_utaunt_gamemode_override", "0", bor( FCVAR_ARCHIVE, FCVAR_NOTIFY ), "Overrides gamemode taunt functions to allow players use taunts.", 0, 1 )
+        sv_utaunt_gamemode_override = CreateConVar( "sv_utaunt_gamemode_override", "0", bor( FCVAR_ARCHIVE, FCVAR_NOTIFY ), "Overrides gamemode taunt functions to allow players use taunts.", 0, 1 )
 
         changeOverride = ( _, __, value ) ->
             if value == "1"
@@ -576,10 +576,10 @@ if SERVER
             else
                 GAMEMODE.PlayerShouldTaunt = GAMEMODE.__PlayerShouldTaunt or GAMEMODE.PlayerShouldTaunt
 
-        cvars.AddChangeCallback utaunt_gamemode_override\GetName!, changeOverride, addonName
+        cvars.AddChangeCallback( sv_utaunt_gamemode_override\GetName!, changeOverride, addonName )
 
         timer.Simple 0.25, ->
-            changeOverride( nil, nil, utaunt_gamemode_override\GetString! )
+            changeOverride( nil, nil, sv_utaunt_gamemode_override\GetString! )
             return
 
     do
@@ -626,7 +626,7 @@ if SERVER
     PRE_HOOK )
 
     Add( "PlayerButtonDown", addonName .. "::TauntMenu", ( ply, keyCode ) ->
-        if keyCode == GetInt( utaunt_menu_key )
+        if keyCode == GetInt( sv_utaunt_menu_key )
             ply\ConCommand( "utaunts " .. keyCode )
             return
 
@@ -634,7 +634,7 @@ if SERVER
 
 Add "PlayerSwitchWeapon", addonName .. "::WeaponSwitch", ( ply ) ->
     if ply.m_bIsPlayingTaunt
-        if GetBool( utaunt_allow_weapons )
+        if GetBool( sv_utaunt_allow_weapons )
             return
 
         return true
@@ -720,10 +720,10 @@ do
         if KeyDown( cmd, IN_DUCK )
             RemoveKey( cmd, IN_DUCK )
 
-        unless GetBool( utaunt_allow_movement )
+        unless GetBool( sv_utaunt_allow_movement )
             ClearMovement( cmd )
 
-        if GetBool( utaunt_allow_attack )
+        if GetBool( sv_utaunt_allow_attack )
             if KeyDown( cmd, IN_ATTACK ) and band( buttons, IN_ATTACK ) == 0
                 buttons = bor( buttons, IN_ATTACK )
 
@@ -788,7 +788,7 @@ Add( "Think", addonName .. "::IsInTaunt", ->
 PRE_HOOK )
 
 Add "HUDShouldDraw", addonName .. "::WeaponSelector", ( name ) ->
-    if isInTaunt and name == "CHudWeaponSelection" and not GetBool( utaunt_allow_weapons )
+    if isInTaunt and name == "CHudWeaponSelection" and not GetBool( sv_utaunt_allow_weapons )
         return false
 
 :Forward = FindMetaTable( "Angle" )
@@ -876,8 +876,8 @@ do
                     newChannel\Stop!
                     return
 
-                if GetVolume( newChannel ) ~= GetFloat( utaunt_audio_volume )
-                    newChannel\SetVolume( GetFloat( utaunt_audio_volume ) )
+                if GetVolume( newChannel ) ~= GetFloat( sv_utaunt_audio_volume )
+                    newChannel\SetVolume( GetFloat( sv_utaunt_audio_volume ) )
 
                 boneID = LookupBone( ply, "ValveBiped.Bip01_Head1" )
                 if boneID and boneID >= 0
