@@ -24,6 +24,7 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - uTaunt.SetRenderAngles( `Player` ply, `Angle` angles ) - sets angles of player render as **Angle**.
 - uTaunt.IsAudioEnabled( `Player` ply ) - returns **true** if sequences audio is enabled.
 - uTaunt.IsCoopEnabled( `Player` ply ) - returns **true** if sequences in co-op mode is enabled.
+- uTaunt.IsLoopingEnabled( `Player` ply ) - returns **true** if sequence looping is enabled.
 
 ### Shared Functions
 - `table` uTaunt.FindSequences( `Entity` entity, `string` pattern ) - returns list with sequences data like `{ id = 0, name = "idle", duration = 1 }`.
@@ -40,6 +41,8 @@ Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - `string` uTaunt.GetPhrase( `string` placeholder ) - returns localized phrase as **string**.
 - `boolean` uTaunt.IsAudioEnabled() - returns **true** if sequences audio is enabled.
 - `boolean` uTaunt.IsCoopEnabled() - returns **true** if coop sequences is allowed.
+- `boolean` uTaunt.IsLoopingEnabled() - returns **true** if sequence looping is enabled.
+- `integer` uTaunt.GetCameraMode() - returns camera mode as **integer**.
 
 ### Shared Hooks
 - GM:TauntStartCommand( `Player` ply, `CUserCommand` cmd, `string` sequenceName ) - called when player taunting, here can be returned the bit number of buttons that the player presses.

@@ -168,18 +168,18 @@ isValidTauntingPlayer = ( ply ) ->
 lib.IsValidTauntingPlayer = isValidTauntingPlayer
 
 CONVAR = FindMetaTable( "ConVar" )
-:GetFloat, :GetBool = CONVAR
+:GetInt, :GetFloat, :GetBool = CONVAR
 
 utaunt_allow_weapons, utaunt_allow_movement, utaunt_allow_attack, utaunt_audio_volume = nil, nil, nil, nil
 do
 
     flags = bor( FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY )
-    utaunt_allow_weapons = CreateConVar( "utaunt_allow_weapons", "0", flags, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
-    utaunt_allow_movement = CreateConVar( "utaunt_allow_movement", "0", flags, "Allow players to move while taunting.", 0, 1 )
-    utaunt_allow_attack = CreateConVar( "utaunt_allow_attack", "0", flags, "Allow players to attack while taunting.", 0, 1 )
-    utaunt_audio_volume = CreateConVar( "utaunt_audio_volume", "1", flags, "Volume of taunts audio.", 0, 10 )
+    utaunt_allow_weapons = CreateConVar( "sv_utaunt_allow_weapons", "0", flags, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
+    utaunt_allow_movement = CreateConVar( "sv_utaunt_allow_movement", "0", flags, "Allow players to move while taunting.", 0, 1 )
+    utaunt_allow_attack = CreateConVar( "sv_utaunt_allow_attack", "0", flags, "Allow players to attack while taunting.", 0, 1 )
+    utaunt_audio_volume = CreateConVar( "sv_utaunt_audio_volume", "1", flags, "Volume of taunts audio.", 0, 10 )
 
-    utaunt_audio_override = CreateConVar( "utaunt_audio_override", "", flags, "Overrides the audio of all taunts to the specified one. Leave it blank so it won't be used." )
+    utaunt_audio_override = CreateConVar( "sv_utaunt_audio_override", "", flags, "Overrides the audio of all taunts to the specified one. Leave it blank so it won't be used." )
 
     Add "UnknownTauntSound", addonName .. "::SoundOverride", ->
         value = utaunt_audio_override\GetString!
@@ -220,19 +220,22 @@ if SERVER
         return true
 
     lib.IsAudioEnabled = ( ply ) ->
-        return GetInfo( ply, "utaunt_audio" ) == "1"
+        return GetInfo( ply, "cl_utaunt_audio" ) == "1"
 
     lib.IsCoopEnabled = ( ply ) ->
-        return GetInfo( ply, "utaunt_coop" ) == "1"
+        return GetInfo( ply, "cl_utaunt_coop" ) == "1"
+
+    lib.IsLoopingEnabled = ( ply ) ->
+        return GetInfo( ply, "cl_utaunt_loop" ) == "1"
 
     utaunt_menu_key, utaunt_real_origin, utaunt_coop_distance, utaunt_collisions = nil, nil, nil, nil
     do
 
         flags = bor( FCVAR_ARCHIVE, FCVAR_NOTIFY )
-        utaunt_menu_key = CreateConVar( "utaunt_menu_key", KEY_I, flags, "Default key to open menu of unknown taunts, uses keys from https://wiki.facepunch.com/gmod/Enums/KEY", 0, 512 )
-        utaunt_real_origin = CreateConVar( "utaunt_real_origin", "0", flags, "Uses the player's real position instead of initial position at the end of taunt.", 0, 1 )
-        utaunt_coop_distance = CreateConVar( "utaunt_coop_distance", "512", flags, "Minimum required distance to join in a co-op taunt.", 0, 16384 )
-        utaunt_collisions = CreateConVar( "utaunt_collisions", "0", flags, "Allow players to collide with each other while taunting.", 0, 1 )
+        utaunt_menu_key = CreateConVar( "sv_utaunt_menu_key", KEY_I, flags, "Default key to open menu of unknown taunts, uses keys from https://wiki.facepunch.com/gmod/Enums/KEY", 0, 512 )
+        utaunt_real_origin = CreateConVar( "sv_utaunt_real_origin", "0", flags, "Uses the player's real position instead of initial position at the end of taunt.", 0, 1 )
+        utaunt_coop_distance = CreateConVar( "sv_utaunt_coop_distance", "512", flags, "Minimum required distance to join in a co-op taunt.", 0, 16384 )
+        utaunt_collisions = CreateConVar( "sv_utaunt_collisions", "0", flags, "Allow players to collide with each other while taunting.", 0, 1 )
 
     :GetModel, :SetCollisionGroup = ENTITY
 
@@ -343,6 +346,14 @@ if SERVER
         if not isUTaunt and isPlayingTaunt( ply )
             return false
 
+    :DistToSqr = FindMetaTable( "Vector" )
+    :Iterator = player
+
+    maxDistance = GetInt( utaunt_coop_distance ) ^ 2
+    cvars.AddChangeCallback( utaunt_coop_distance\GetName!, ( _, __, value ) ->
+        maxDistance = ( tonumber( value ) or 0 ) ^ 2
+    addonName )
+
     lib.Start = ( ply, sequenceName, force, cycle, noSound, startOrigin, startAngles ) ->
         if isPlayingCTaunt( ply )
             if isPlayingTaunt( ply )
@@ -358,24 +369,27 @@ if SERVER
             if Run( "PlayerShouldUnknownTaunt", ply, sequenceID ) ~= true or Run( "PlayerShouldTaunt", ply, ACT_GMOD_TAUNT_DANCE, true ) == false
                 return false
 
-            if GetInfo( ply, "utaunt_coop" ) == "1"
-                maxDistance = utaunt_coop_distance\GetInt!
-                if maxDistance > 0
-                    for otherPlayer in *ents.FindInSphere( ply\GetPos!, maxDistance )
-                        unless otherPlayer\IsPlayer! and Alive( otherPlayer )
-                            continue
+            if GetInfo( ply, "cl_utaunt_coop" ) == "1" and maxDistance > 0
+                origin = GetBonePosition( ply, 0 )
 
-                        if otherPlayer == ply or GetNW2Var( otherPlayer, "uTaunt-Name" ) ~= sequenceName or GetInfo( otherPlayer, "utaunt_coop" ) ~= "1"
-                            continue
+                for _, otherPlayer in Iterator!
+                    if not ( Alive( otherPlayer ) and otherPlayer.m_bIsPlayingTaunt ) or otherPlayer == ply
+                        continue
 
-                        if GetBonePosition( otherPlayer, 0 )\Distance( ply\EyePos! ) > maxDistance
-                            continue
+                    if GetNW2Var( otherPlayer, "uTaunt-Name" ) ~= sequenceName
+                        continue
 
-                        if Run( "PlayerShouldCoopTaunt", ply, otherPlayer, sequenceName ) == false
-                            continue
+                    if DistToSqr( origin, GetBonePosition( otherPlayer, 0 ), nil ) > maxDistance
+                        continue
 
-                        if lib.Join( ply, otherPlayer )
-                            return true
+                    unless otherPlayer\IsBot! or GetInfo( otherPlayer, "cl_utaunt_coop" ) == "1"
+                        continue
+
+                    if Run( "PlayerShouldCoopTaunt", ply, otherPlayer, sequenceName ) == false
+                        continue
+
+                    if lib.Join( ply, otherPlayer )
+                        return true
 
         duration = SequenceDuration( ply, sequenceID )
         if duration < 0.25
@@ -415,7 +429,7 @@ if SERVER
         ply\AddVCDSequenceToGestureSlot( GESTURE_SLOT_CUSTOM, sequenceID, 0, true )
         ply\CrosshairDisable!
 
-        if noSound or not ( GetInfo( ply, "utaunt_audio" ) == "1" or ply\IsBot! )
+        if noSound or not ( GetInfo( ply, "cl_utaunt_audio" ) == "1" or ply\IsBot! )
             SetNW2Var( ply, "uTaunt-WebAudio", false )
 
         elseif webSounds[ sequenceName ] ~= nil
@@ -548,7 +562,7 @@ if SERVER
 
     do
 
-        utaunt_gamemode_override = CreateConVar( "utaunt_gamemode_override", "0", bor( FCVAR_ARCHIVE, FCVAR_NOTIFY ), "Overrides gamemode taunt functions to allow players use taunts.", 0, 1 )
+        utaunt_gamemode_override = CreateConVar( "sv_utaunt_gamemode_override", "0", bor( FCVAR_ARCHIVE, FCVAR_NOTIFY ), "Overrides gamemode taunt functions to allow players use taunts.", 0, 1 )
 
         changeOverride = ( _, __, value ) ->
             if value == "1"
@@ -606,13 +620,13 @@ if SERVER
                 return true
 
     Add( "PlayerFinishedTaunt", addonName .. "::TauntLooping", ( ply, sequenceName, isFinished ) ->
-        if isFinished and GetInfo( ply, "utaunt_loop" ) == "1"
+        if isFinished and GetInfo( ply, "cl_utaunt_loop" ) == "1"
             lib.Start( ply, sequenceName, false )
 
     PRE_HOOK )
 
     Add( "PlayerButtonDown", addonName .. "::TauntMenu", ( ply, keyCode ) ->
-        if keyCode == utaunt_menu_key\GetInt!
+        if keyCode == GetInt( utaunt_menu_key )
             ply\ConCommand( "utaunts " .. keyCode )
             return
 
@@ -725,21 +739,22 @@ do
 unless CLIENT
     return
 
-CreateClientConVar( "utaunt_loop", "0", true, true, "Enables looping for all taunts.", 0, 1 )
+cl_utaunt_loop = CreateClientConVar( "cl_utaunt_loop", "0", true, true, "Enables looping for all taunts.", 0, 1 )
+cl_utaunt_audio = CreateClientConVar( "cl_utaunt_audio", "1", true, true, "Enables audio playback for taunts that support this feature.", 0, 1 )
+cl_utaunt_coop = CreateClientConVar( "cl_utaunt_coop", "1", true, true, "If enabled player will automatically join/synchronize with dance of another player nearby.", 0, 1 )
+cl_utaunt_camera_mode = CreateClientConVar( "cl_utaunt_camera_mode", "1", true, false, "0 = Simple third person, 1 = Third person attached to head, 2 = Eyes", 0, 2 )
 
-do
+lib.IsAudioEnabled = ->
+    return GetBool( cl_utaunt_audio )
 
-    utaunt_audio = CreateClientConVar( "utaunt_audio", "1", true, true, "Enables audio playback for taunts that support this feature.", 0, 1 )
+lib.IsCoopEnabled = ->
+    return GetBool( cl_utaunt_coop )
 
-    lib.IsAudioEnabled = ->
-        return GetBool( utaunt_audio )
+lib.IsLoopingEnabled = ->
+    return GetBool( cl_utaunt_loop )
 
-do
-
-    utaunt_coop = CreateClientConVar( "utaunt_coop", "1", true, true, "If enabled player will automatically join/synchronize with dance of another player nearby.", 0, 1 )
-
-    lib.IsCoopEnabled = ->
-        return GetBool( utaunt_coop )
+lib.GetCameraMode = ->
+    return GetInt( cl_utaunt_camera_mode )
 
 :GetPhrase = language
 
@@ -777,6 +792,7 @@ Add "HUDShouldDraw", addonName .. "::WeaponSelector", ( name ) ->
         return false
 
 :Forward = FindMetaTable( "Angle" )
+boneID = 0
 
 do
 
@@ -796,7 +812,6 @@ do
     }
 
     :Remove = hook
-    boneID = 0
 
     Add( "UnknownTauntSynced", addonName .. "::Sync", ( ply, sequenceName, cycle, sequenceID, webAudio ) ->
         mins[ 3 ] = ply\GetModelRenderBounds![ 3 ]
@@ -1133,7 +1148,7 @@ do
 
 do
 
-    utaunt_menu_auto_close = CreateClientConVar( "utaunt_menu_auto_close", "0", true, false, "Automatically close the taunt menu when a taunt is selected.", 0, 1 )
+    cl_utaunt_menu_auto_close = CreateClientConVar( "cl_utaunt_menu_auto_close", "0", true, false, "Automatically close the taunt menu when a taunt is selected.", 0, 1 )
     :DrawRect, :SetDrawColor = surface
     :floor, :Round = math
 
@@ -1197,14 +1212,14 @@ do
             button.UpdateIcon = ( state ) ->
                 button\SetImage( state and "icon16/group.png" or "icon16/user.png" )
 
-            button.UpdateIcon( cvars.Bool( "utaunt_coop" ) )
+            button.UpdateIcon( GetBool( cl_utaunt_coop ) )
 
             button.DoClick = ->
-                if cvars.Bool( "utaunt_coop" )
-                    RunConsoleCommand( "utaunt_coop", "0" )
+                if GetBool( cl_utaunt_coop )
+                    cl_utaunt_coop\SetBool( false )
                     button.UpdateIcon( false )
                 else
-                    RunConsoleCommand( "utaunt_coop", "1" )
+                    cl_utaunt_coop\SetBool( true )
                     button.UpdateIcon( true )
 
                 @ClickSound!
@@ -1218,16 +1233,44 @@ do
             button.Paint = ->
 
             button.UpdateIcon = ( state ) ->
-                button\SetImage( state and "icon16/sound.png" or "icon16/sound_mute.png" )
+                icon = "icon16/camera.png"
+                if state == 1
+                    icon = "icon16/camera_link.png"
+                elseif state == 2
+                    icon = "icon16/eye.png"
 
-            button.UpdateIcon( cvars.Bool( "utaunt_audio" ) )
+                button\SetImage( icon )
+
+            button.UpdateIcon( GetInt( cl_utaunt_camera_mode ) )
 
             button.DoClick = ->
-                if cvars.Bool( "utaunt_audio" )
-                    RunConsoleCommand( "utaunt_audio", "0" )
+                state = GetInt( cl_utaunt_camera_mode ) + 1
+                if state > cl_utaunt_camera_mode\GetMax!
+                    state = cl_utaunt_camera_mode\GetMin!
+
+                cl_utaunt_camera_mode\SetInt( state )
+                button.UpdateIcon( state )
+                @ClickSound!
+
+        do
+
+            button = actions\Add( "DButton" )
+            button\SetText( "" )
+            button\SetWide( 32 )
+            button\Dock( RIGHT )
+            button.Paint = ->
+
+            button.UpdateIcon = ( state ) ->
+                button\SetImage( state and "icon16/sound.png" or "icon16/sound_mute.png" )
+
+            button.UpdateIcon( GetBool( cl_utaunt_audio ) )
+
+            button.DoClick = ->
+                if GetBool( cl_utaunt_audio )
+                    cl_utaunt_audio\SetBool( false )
                     button.UpdateIcon( false )
                 else
-                    RunConsoleCommand( "utaunt_audio", "1" )
+                    cl_utaunt_audio\SetBool( true )
                     button.UpdateIcon( true )
 
                 @ClickSound!
@@ -1243,14 +1286,14 @@ do
             button.UpdateIcon = ( state ) ->
                 button\SetImage( state and "icon16/control_repeat_blue.png" or "icon16/control_repeat.png" )
 
-            button.UpdateIcon( cvars.Bool( "utaunt_loop" ) )
+            button.UpdateIcon( GetBool( cl_utaunt_loop ) )
 
             button.DoClick = ->
-                if cvars.Bool( "utaunt_loop" )
-                    RunConsoleCommand( "utaunt_loop", "0" )
+                if GetBool( cl_utaunt_loop )
+                    cl_utaunt_loop\SetBool( false )
                     button.UpdateIcon( false )
                 else
-                    RunConsoleCommand( "utaunt_loop", "1" )
+                    cl_utaunt_loop\SetBool( true )
                     button.UpdateIcon( true )
 
                 @ClickSound!
@@ -1359,7 +1402,7 @@ do
                 combo.OnSelect = ( _, __, ___, name ) ->
                     RunConsoleCommand( "utaunt", name )
 
-                    if GetBool( utaunt_menu_auto_close )
+                    if GetBool( cl_utaunt_menu_auto_close )
                         @Close!
                         return
 
@@ -1443,7 +1486,11 @@ list.Set "DesktopWindows", "utaunt-menu", {
 
 do
 
-    cl_taunt_headcam = CreateClientConVar( "cl_taunt_headcam", "1", true, false, "Makes player's head the center of the screen.", 0, 1 )
+    camera_mode = GetInt( cl_utaunt_camera_mode )
+    cvars.AddChangeCallback( cl_utaunt_camera_mode\GetName!, ( _, __, value ) ->
+        camera_mode = tonumber( value ) or 0
+    addonName )
+
     FrameTime = FrameTime
 
     viewAngles = nil
@@ -1462,16 +1509,20 @@ do
 
     do
 
+        :LookupAttachment, :GetAttachment = ENTITY
+        vector_origin = vector_origin
+        LocalToWorld = LocalToWorld
         :GetViewEntity = PLAYER
         LerpVector = LerpVector
         LerpAngle = LerpAngle
-        fraction = 0
+
+        targetOrigin, targetAngles = nil, nil
+        attachmentID, fraction = 0, 0
+        view = { drawviewer: true }
 
         Add "ShouldDrawLocalPlayer", addonName .. "::Compatibility", ->
             if isInTaunt or fraction > 0
                 return true
-
-        view = { drawviewer: true }
 
         Add "CalcView", addonName .. "::Compatibility", ( ply, origin, angles ) ->
             unless ( isInTaunt or fraction > 0 ) and Alive( ply ) and GetViewEntity( ply ) == ply
@@ -1486,21 +1537,36 @@ do
 
                 return
 
-            unless viewAngles
-                viewAngles = Angle( angles )
-                viewAngles[ 1 ], viewAngles[ 3 ] = 0, 0
-
-            unless distance
-                distance = 128
-
-            targetOrigin = nil
-            if traceResult.HitPos
-                targetOrigin = traceResult.HitPos + traceResult.HitNormal
-            else
-                targetOrigin = origin
-
             unless eyeAngles
-                eyeAngles = Angle( viewAngles )
+                eyeAngles = Angle( angles )
+                eyeAngles[ 1 ], eyeAngles[ 3 ] = 0, 0
+
+            unless viewAngles
+                viewAngles = ( camera_mode == 2 ) and Angle! or Angle( eyeAngles )
+
+            if camera_mode == 2
+                attachmentID = LookupAttachment( ply, "eyes" )
+                if attachmentID and attachmentID > 0
+                    data = GetAttachment( ply, attachmentID )
+                    targetOrigin, targetAngles = LocalToWorld( vector_origin, viewAngles, data.Pos, data.Ang )
+                else
+                    boneID = LookupBone( ply, "ValveBiped.Bip01_Head1" )
+                    if boneID and boneID > 0
+                        targetOrigin, targetAngles = LocalToWorld( vector_origin, viewAngles, GetBonePosition( ply, boneID ) )
+                    else
+                        targetOrigin, targetAngles = LocalToWorld( vector_origin, viewAngles, GetBonePosition( ply, 0 ) )
+
+            else
+
+                unless distance
+                    distance = 128
+
+                if traceResult.HitPos
+                    targetOrigin = traceResult.HitPos + traceResult.HitNormal
+                else
+                    targetOrigin = origin
+
+                targetAngles = viewAngles
 
             if isInTaunt
                 if fraction < 1
@@ -1510,7 +1576,7 @@ do
                         fraction = 1
 
                     view.origin = LerpVector( fraction, origin, targetOrigin )
-                    view.angles = LerpAngle( fraction, eyeAngles, viewAngles )
+                    view.angles = LerpAngle( fraction, eyeAngles, targetAngles )
                     return view
 
             elseif fraction > 0
@@ -1520,16 +1586,17 @@ do
                     fraction = 0
 
                 view.origin = LerpVector( fraction, origin, targetOrigin )
-                view.angles = LerpAngle( fraction, eyeAngles, viewAngles )
+                view.angles = LerpAngle( fraction, eyeAngles, targetAngles )
                 return view
 
             view.origin = targetOrigin
-            view.angles = viewAngles
+            view.angles = targetAngles
             return view
 
     do
 
         :SetViewAngles, :GetMouseWheel = FindMetaTable( "CUserCmd" )
+        wheel = 0
 
         Add( "CreateMove", addonName .. "::Compatibility", ( cmd ) ->
             if eyeAngles
@@ -1538,31 +1605,37 @@ do
 
         PRE_HOOK )
 
-        frameTime, wheel = 0, 0
-
         Add( "InputMouseApply", addonName .. "::Camera", ( cmd, x, y ) ->
             if viewAngles
-                frameTime = FrameTime!
-
                 if y ~= 0
-                    viewAngles[ 1 ] += y * frameTime
+                    viewAngles[ 1 ] += y * FrameTime!
 
-                    if viewAngles[ 1 ] > 90
-                        viewAngles[ 1 ] = 90
-
-                    elseif viewAngles[ 1 ] < -90
-                        viewAngles[ 1 ] = -90
+                    if camera_mode == 2
+                        if viewAngles[ 1 ] > 30
+                            viewAngles[ 1 ] = 30
+                        elseif viewAngles[ 1 ] < -60
+                            viewAngles[ 1 ] = -60
+                    else
+                        if viewAngles[ 1 ] > 90
+                            viewAngles[ 1 ] = 90
+                        elseif viewAngles[ 1 ] < -90
+                            viewAngles[ 1 ] = -90
 
                 if x ~= 0
-                    viewAngles[ 2 ] -= x * frameTime
+                    viewAngles[ 2 ] -= x * FrameTime!
 
-                    if viewAngles[ 2 ] > 180
-                        viewAngles[ 2 ] = -180
+                    if camera_mode == 2
+                        if viewAngles[ 2 ] > 45
+                            viewAngles[ 2 ] = 45
+                        elseif viewAngles[ 2 ] < -45
+                            viewAngles[ 2 ] = -45
+                    else
+                        if viewAngles[ 2 ] > 180
+                            viewAngles[ 2 ] = -180
+                        elseif viewAngles[ 2 ] < -180
+                            viewAngles[ 2 ] = 180
 
-                    elseif viewAngles[ 2 ] < -180
-                        viewAngles[ 2 ] = 180
-
-            if distance
+            if distance and camera_mode ~= 2
                 wheel = GetMouseWheel( cmd )
                 if wheel ~= 0
                     distance = distance - wheel * ( distance * 0.1 )
@@ -1580,11 +1653,14 @@ do
         :TraceHull = util
 
         Add( "Think", addonName .. "::Camera", ->
+            if camera_mode == 2
+                return
+
             if viewAngles and distance
-                if GetBool( cl_taunt_headcam )
-                    bone = LookupBone( localPlayer, "ValveBiped.Bip01_Head1" )
-                    if bone and bone >= 0
-                        trace.start = GetBonePosition( localPlayer, bone )
+                if camera_mode == 1
+                    boneID = LookupBone( localPlayer, "ValveBiped.Bip01_Head1" )
+                    if boneID and boneID >= 0
+                        trace.start = GetBonePosition( localPlayer, boneID )
                     else
                         trace.start = localPlayer\EyePos!
                 else
