@@ -1567,6 +1567,12 @@ do
                 unless distance
                     distance = cl_utaunt_camera_distance\GetInt!
 
+                    if distance < sv_utaunt_camera_distance_min\GetInt!
+                        distance = sv_utaunt_camera_distance_min\GetInt!
+
+                    elseif distance > sv_utaunt_camera_distance_max\GetInt!
+                        distance = sv_utaunt_camera_distance_max\GetInt!
+
                 if traceResult.HitPos
                     targetOrigin = traceResult.HitPos + traceResult.HitNormal
                 else
