@@ -1,7 +1,10 @@
 PLAYER, ENTITY = FindMetaTable( "Player" ), FindMetaTable( "Entity" )
-:sub, :lower, :find, :match, :Trim = string
+import sub, lower, find, match, Trim from string
 :LookupBone, :GetBonePosition = ENTITY
 RunConsoleCommand = RunConsoleCommand
+CreateConVar = CreateConVar
+import Exists from file
+import bor from bit
 tonumber = tonumber
 isnumber = isnumber
 isvector = isvector
@@ -10,8 +13,6 @@ istable = istable
 CurTime = CurTime
 CLIENT = CLIENT
 SERVER = SERVER
-:Exists = file
-:bor = bit
 
 -- ULib support ( I really don't like this )
 if Exists( "ulib/shared/hook.lua", "LUA" )
@@ -46,7 +47,7 @@ timer.Simple 0.5, ->
             coopDances[ name .. ( danceID + index ) ] = 0
 
 :IsValid, :GetNW2Var, :SetNW2Var, :LookupSequence, :SequenceDuration, :GetSequenceList, :IsDormant = ENTITY
-:Add, :Run = hook
+import Add, Run from hook
 :Alive = PLAYER
 
 ACT_GMOD_TAUNT_DANCE = ACT_GMOD_TAUNT_DANCE
@@ -60,7 +61,8 @@ if isPlayingCTaunt == nil
 lib.GetSequenceName = ( ply ) ->
     return GetNW2Var( ply, "uTaunt-Name", "" )
 
-getRenderAngles = nil
+
+local getRenderAngles
 do
 
     :EyeAngles = ENTITY
@@ -90,12 +92,12 @@ lib.HasWebSound = ( sequenceName ) ->
 
 lib.HasWebSound = hasWebSound
 
-findSound = nil
+local findSound
 do
 
     sounds = list.GetForEdit( "uTaunt - Sounds", false )
     supportedExtensions = { "mp3", "wav", "ogg" }
-    :GetTable = sound
+    import GetTable from sound
 
     soundExists = ( sequenceName ) ->
         if Exists( "sound/unknown-taunts/" .. sequenceName, "GAME" )
@@ -128,10 +130,10 @@ do
     PLAYER.IsPlayingTaunt = isPlayingAnyTaunt
     lib.IsPlayingAnyTaunt = isPlayingAnyTaunt
 
-getCycle = nil
+local getCycle
 do
 
-    :Clamp = math
+    import Clamp from math
 
     getCycle = ( ply, sequenceID, startTime ) ->
         return Clamp( ( CurTime! - ( startTime or getStartTime( ply ) ) ) / SequenceDuration( ply, sequenceID ), 0, 1 )
@@ -170,7 +172,7 @@ lib.IsValidTauntingPlayer = isValidTauntingPlayer
 CONVAR = FindMetaTable( "ConVar" )
 :GetInt, :GetFloat, :GetBool = CONVAR
 
-sv_utaunt_allow_weapons, sv_utaunt_allow_movement, sv_utaunt_allow_attack, sv_utaunt_audio_volume = nil, nil, nil, nil
+local sv_utaunt_allow_weapons, sv_utaunt_allow_movement, sv_utaunt_allow_attack, sv_utaunt_audio_volume, sv_utaunt_camera_distance_min, sv_utaunt_camera_distance_max
 do
 
     flags = bor( FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY )
@@ -178,6 +180,9 @@ do
     sv_utaunt_allow_movement = CreateConVar( "sv_utaunt_allow_movement", "0", flags, "Allow players to move while taunting.", 0, 1 )
     sv_utaunt_allow_attack = CreateConVar( "sv_utaunt_allow_attack", "0", flags, "Allow players to attack while taunting.", 0, 1 )
     sv_utaunt_audio_volume = CreateConVar( "sv_utaunt_audio_volume", "1", flags, "Volume of taunts audio.", 0, 10 )
+
+    sv_utaunt_camera_distance_min = CreateConVar( "sv_utaunt_camera_distance_min", "16", flags, "Minimum distance of taunt camera.", 0, 2 ^ 12 )
+    sv_utaunt_camera_distance_max = CreateConVar( "sv_utaunt_camera_distance_max", "1024", flags, "Maximum distance of taunt camera.", 0, 2 ^ 12 )
 
     sv_utaunt_audio_override = CreateConVar( "sv_utaunt_audio_override", "", flags, "Overrides the audio of all taunts to the specified one. Leave it blank so it won't be used." )
 
@@ -347,7 +352,7 @@ if SERVER
             return false
 
     :DistToSqr = FindMetaTable( "Vector" )
-    :Iterator = player
+    import Iterator from player
 
     maxDistance = GetInt( sv_utaunt_coop_distance ) ^ 2
     cvars.AddChangeCallback( sv_utaunt_coop_distance\GetName!, ( _, __, value ) ->
@@ -699,7 +704,7 @@ do
 
     :ClearMovement, :SetButtons, :SetImpulse, :KeyDown, :RemoveKey = FindMetaTable( "CUserCmd" )
     IN_ATTACK, IN_ATTACK2, IN_DUCK, IN_JUMP = IN_ATTACK, IN_ATTACK2, IN_DUCK, IN_JUMP
-    :band = bit
+    import band from bit
 
     buttons = 0
 
@@ -739,6 +744,8 @@ do
 unless CLIENT
     return
 
+CreateClientConVar = CreateClientConVar
+
 cl_utaunt_loop = CreateClientConVar( "cl_utaunt_loop", "0", true, true, "Enables looping for all taunts.", 0, 1 )
 cl_utaunt_audio = CreateClientConVar( "cl_utaunt_audio", "1", true, true, "Enables audio playback for taunts that support this feature.", 0, 1 )
 cl_utaunt_coop = CreateClientConVar( "cl_utaunt_coop", "1", true, true, "If enabled player will automatically join/synchronize with dance of another player nearby.", 0, 1 )
@@ -756,7 +763,7 @@ lib.IsLoopingEnabled = ->
 lib.GetCameraMode = ->
     return GetInt( cl_utaunt_camera_mode )
 
-:GetPhrase = language
+import GetPhrase from language
 
 getPhrase = ( placeholder ) ->
     fulltext = GetPhrase( placeholder )
@@ -811,7 +818,7 @@ do
         [ GMOD_CHANNEL_STALLED ]: true
     }
 
-    :Remove = hook
+    import Remove from hook
 
     Add( "UnknownTauntSynced", addonName .. "::Sync", ( ply, sequenceName, cycle, sequenceID, webAudio ) ->
         mins[ 3 ] = ply\GetModelRenderBounds![ 3 ]
@@ -1061,7 +1068,7 @@ do
 -- Default Sequences
 do
 
-    :format = string
+    import format from string
 
     taunts = {
         "taunt_cheer"
@@ -1149,8 +1156,8 @@ do
 do
 
     cl_utaunt_menu_auto_close = CreateClientConVar( "cl_utaunt_menu_auto_close", "0", true, false, "Automatically close the taunt menu when a taunt is selected.", 0, 1 )
-    :DrawRect, :SetDrawColor = surface
-    :floor, :Round = math
+    import DrawRect, SetDrawColor from surface
+    import floor, Round from math
 
     PANEL = {}
 
@@ -1436,7 +1443,7 @@ do
 do
 
     HSVToColor = HSVToColor
-    :Round = math
+    import Round from math
     MsgC = MsgC
 
     concommand.Add "utaunt_list", ( ply, _, args ) ->
@@ -1493,9 +1500,7 @@ do
 
     FrameTime = FrameTime
 
-    viewAngles = nil
-    eyeAngles = nil
-    distance = nil
+    local viewAngles, eyeAngles, distance
 
     traceResult = {}
     trace = {
@@ -1509,6 +1514,7 @@ do
 
     do
 
+        cl_utaunt_camera_distance = CreateClientConVar( "cl_utaunt_camera_distance", "128", true, false, "Distance of the camera from the player." )
         :LookupAttachment, :GetAttachment = ENTITY
         vector_origin = vector_origin
         LocalToWorld = LocalToWorld
@@ -1559,7 +1565,7 @@ do
             else
 
                 unless distance
-                    distance = 128
+                    distance = cl_utaunt_camera_distance\GetInt!
 
                 if traceResult.HitPos
                     targetOrigin = traceResult.HitPos + traceResult.HitNormal
@@ -1596,13 +1602,27 @@ do
     do
 
         :SetViewAngles, :GetMouseWheel = FindMetaTable( "CUserCmd" )
+        import TraceHull from util
         wheel = 0
 
         Add( "CreateMove", addonName .. "::Compatibility", ( cmd ) ->
             if eyeAngles
                 SetViewAngles( cmd, eyeAngles )
-                return
 
+            if camera_mode ~= 2 and viewAngles and distance
+                if camera_mode == 1
+                    boneID = LookupBone( localPlayer, "ValveBiped.Bip01_Head1" )
+                    if boneID and boneID >= 0
+                        trace.start = GetBonePosition( localPlayer, boneID )
+                    else
+                        trace.start = localPlayer\EyePos!
+                else
+                    trace.start = localPlayer\EyePos!
+
+                trace.endpos = trace.start - Forward( viewAngles ) * distance
+                TraceHull( trace )
+
+            return
         PRE_HOOK )
 
         Add( "InputMouseApply", addonName .. "::Camera", ( cmd, x, y ) ->
@@ -1640,34 +1660,10 @@ do
                 if wheel ~= 0
                     distance = distance - wheel * ( distance * 0.1 )
 
-                    if distance < 16
-                        distance = 16
+                    if distance < sv_utaunt_camera_distance_min\GetInt!
+                        distance = sv_utaunt_camera_distance_min\GetInt!
 
-                    elseif distance > 1024
-                        distance = 1024
-
-        PRE_HOOK )
-
-    do
-
-        :TraceHull = util
-
-        Add( "Think", addonName .. "::Camera", ->
-            if camera_mode == 2
-                return
-
-            if viewAngles and distance
-                if camera_mode == 1
-                    boneID = LookupBone( localPlayer, "ValveBiped.Bip01_Head1" )
-                    if boneID and boneID >= 0
-                        trace.start = GetBonePosition( localPlayer, boneID )
-                    else
-                        trace.start = localPlayer\EyePos!
-                else
-                    trace.start = localPlayer\EyePos!
-
-                trace.endpos = trace.start - Forward( viewAngles ) * distance
-                TraceHull( trace )
-                return
+                    elseif distance > sv_utaunt_camera_distance_max\GetInt!
+                        distance = sv_utaunt_camera_distance_max\GetInt!
 
         PRE_HOOK )
