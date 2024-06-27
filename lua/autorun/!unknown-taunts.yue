@@ -1,28 +1,22 @@
-PLAYER, ENTITY = FindMetaTable( "Player" ), FindMetaTable( "Entity" )
+_G = _G
+
+import string, tonumber, istable, isnumber, isvector, isangle, FindMetaTable, CreateConVar, CurTime, CLIENT, SERVER from _G
 import sub, lower, find, match, Trim from string
-:LookupBone, :GetBonePosition = ENTITY
-RunConsoleCommand = RunConsoleCommand
-CreateConVar = CreateConVar
+
+PLAYER, ENTITY = FindMetaTable( "Player" ), FindMetaTable( "Entity" )
+import LookupBone, GetBonePosition, GetCollisionGroup from ENTITY
 import Exists from file
 import bor from bit
-tonumber = tonumber
-isnumber = isnumber
-isvector = isvector
-isangle = isangle
-istable = istable
-CurTime = CurTime
-CLIENT = CLIENT
-SERVER = SERVER
 
 -- ULib support ( I really don't like this )
 if Exists( "ulib/shared/hook.lua", "LUA" )
     include( "ulib/shared/hook.lua" )
 
-PRE_HOOK = PRE_HOOK or HOOK_MONITOR_HIGH
+PRE_HOOK = _G.PRE_HOOK or _G.HOOK_MONITOR_HIGH
 
 addonName = "Unknown Taunts"
 
-lib = uTaunt
+lib = _G.uTaunt
 unless istable( lib )
     lib = { Name: addonName }
     global uTaunt = lib
@@ -46,43 +40,34 @@ timer.Simple 0.5, ->
         for index = 1, value
             coopDances[ name .. ( danceID + index ) ] = 0
 
-:IsValid, :GetNW2Var, :SetNW2Var, :LookupSequence, :SequenceDuration, :GetSequenceList, :IsDormant = ENTITY
+import IsValid, GetNW2Var, SetNW2Var, LookupSequence, SequenceDuration, GetSequenceList, IsDormant from ENTITY
+import ACT_GMOD_TAUNT_DANCE, GESTURE_SLOT_CUSTOM from _G
+import Alive, Crouching from PLAYER
 import Add, Run from hook
-:Alive = PLAYER
-
-ACT_GMOD_TAUNT_DANCE = ACT_GMOD_TAUNT_DANCE
-GESTURE_SLOT_CUSTOM = GESTURE_SLOT_CUSTOM
 
 isPlayingCTaunt = PLAYER.IsPlayingCTaunt
-if isPlayingCTaunt == nil
+unless isPlayingCTaunt
     isPlayingCTaunt = PLAYER.IsPlayingTaunt
     PLAYER.IsPlayingCTaunt = isPlayingCTaunt
 
 lib.GetSequenceName = ( ply ) ->
     return GetNW2Var( ply, "uTaunt-Name", "" )
 
-
 local getRenderAngles
 do
 
-    :EyeAngles = ENTITY
+    import EyeAngles from ENTITY
 
-    getRenderAngles = ( ply ) ->
+    getRenderAngles = lib.GetRenderAngles = ( ply ) ->
         angles = EyeAngles( ply )
         angles[ 1 ], angles[ 3 ] = 0, 0
         return GetNW2Var( ply, "uTaunt-Angles", angles )
 
-lib.GetRenderAngles = getRenderAngles
-
-isPlayingTaunt = ( ply ) ->
+isPlayingTaunt = lib.IsPlayingTaunt = ( ply ) ->
     return GetNW2Var( ply, "uTaunt-Name" ) ~= nil
 
-lib.IsPlayingTaunt = isPlayingTaunt
-
-getStartTime = ( ply ) ->
+getStartTime = lib.GetStartTime = ( ply ) ->
     return GetNW2Var( ply, "uTaunt-Start" ) or CurTime!
-
-lib.GetStartTime = getStartTime
 
 lib.GetWebSound = ( sequenceName ) ->
     return webSounds[ sequenceName ]
@@ -90,24 +75,21 @@ lib.GetWebSound = ( sequenceName ) ->
 lib.HasWebSound = ( sequenceName ) ->
     return webSounds[ sequenceName ] ~= nil
 
-lib.HasWebSound = hasWebSound
-
 local findSound
 do
 
-    sounds = list.GetForEdit( "uTaunt - Sounds", false )
-    supportedExtensions = { "mp3", "wav", "ogg" }
     import GetTable from sound
 
-    soundExists = ( sequenceName ) ->
+    sounds = list.GetForEdit( "uTaunt - Sounds", false )
+    supportedExtensions = { "mp3", "wav", "ogg" }
+
+    soundExists = lib.SoundExists = ( sequenceName ) ->
         if Exists( "sound/unknown-taunts/" .. sequenceName, "GAME" )
             return true
 
         return false
 
-    lib.SoundExists = soundExists
-
-    findSound = ( sequenceName ) ->
+    findSound = lib.FindSound = ( sequenceName ) ->
         if sounds[ sequenceName ]
             return sounds[ sequenceName ]
 
@@ -120,25 +102,16 @@ do
             if soundName == sequenceName
                 return soundName
 
-    lib.FindSound = findSound
-
-do
-
-    isPlayingAnyTaunt = ( ply ) ->
-        return ply.m_bIsPlayingTaunt
-
-    PLAYER.IsPlayingTaunt = isPlayingAnyTaunt
-    lib.IsPlayingAnyTaunt = isPlayingAnyTaunt
+PLAYER.IsPlayingTaunt = lib.IsPlayingAnyTaunt = ( ply ) ->
+    return ply.m_bIsPlayingTaunt
 
 local getCycle
 do
 
     import Clamp from math
 
-    getCycle = ( ply, sequenceID, startTime ) ->
+    getCycle = lib.GetCycle = ( ply, sequenceID, startTime ) ->
         return Clamp( ( CurTime! - ( startTime or getStartTime( ply ) ) ) / SequenceDuration( ply, sequenceID ), 0, 1 )
-
-    lib.GetCycle = getCycle
 
 do
 
@@ -164,18 +137,16 @@ do
 
         return sequences, length
 
-isValidTauntingPlayer = ( ply ) ->
+isValidTauntingPlayer = lib.IsValidTauntingPlayer = ( ply ) ->
     return ply and IsValid( ply ) and Alive( ply ) and isPlayingTaunt( ply )
 
-lib.IsValidTauntingPlayer = isValidTauntingPlayer
-
-CONVAR = FindMetaTable( "ConVar" )
-:GetInt, :GetFloat, :GetBool = CONVAR
+import GetInt, GetFloat, GetBool from FindMetaTable( "ConVar" )
 
 local sv_utaunt_allow_weapons, sv_utaunt_allow_movement, sv_utaunt_allow_attack, sv_utaunt_audio_volume, sv_utaunt_camera_distance_min, sv_utaunt_camera_distance_max
 do
 
     flags = bor( FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY )
+
     sv_utaunt_allow_weapons = CreateConVar( "sv_utaunt_allow_weapons", "0", flags, "Allow players to hold weapons in their hands while taunting.", 0, 1 )
     sv_utaunt_allow_movement = CreateConVar( "sv_utaunt_allow_movement", "0", flags, "Allow players to move while taunting.", 0, 1 )
     sv_utaunt_allow_attack = CreateConVar( "sv_utaunt_allow_attack", "0", flags, "Allow players to attack while taunting.", 0, 1 )
@@ -415,7 +386,7 @@ if SERVER
         SetNW2Var( ply, "uTaunt-Angles", startAngles )
 
         unless GetBool( sv_utaunt_collisions )
-            ply.m_iUnknownTauntCollisionGroup = ply\GetCollisionGroup!
+            ply.m_iUnknownTauntCollisionGroup = GetCollisionGroup( ply )
             ply.m_bUnknownTauntAvoidPlayers = ply\GetAvoidPlayers!
             ply\SetAvoidPlayers( false )
 
@@ -500,10 +471,8 @@ if SERVER
 
     do
 
-        COLLISION_GROUP_PASSABLE_DOOR = COLLISION_GROUP_PASSABLE_DOOR
-        :GetVolume = FindMetaTable( "CSoundPatch" )
-        :GetCollisionGroup = ENTITY
-        :Crouching = PLAYER
+        import GetVolume from FindMetaTable( "CSoundPatch" )
+        import COLLISION_GROUP_PASSABLE_DOOR from _G
 
         sequenceID, cycle, volume = 0, 0, 0
 
@@ -573,7 +542,7 @@ if SERVER
             if value == "1"
                 GAMEMODE.__PlayerShouldTaunt = GAMEMODE.__PlayerShouldTaunt or GAMEMODE.PlayerShouldTaunt
                 GAMEMODE.PlayerShouldTaunt = ( ply, act ) =>
-                    if not ( Alive( ply ) and ply\IsOnGround! ) or ply\Crouching! or ply\InVehicle! or ply\GetMoveType! ~= MOVETYPE_WALK or ply\WaterLevel! > 1
+                    if not ( Alive( ply ) and ply\IsOnGround! ) or Crouching( ply ) or ply\InVehicle! or ply\GetMoveType! ~= MOVETYPE_WALK or ply\WaterLevel! > 1
                         return false
 
                     return true
@@ -589,7 +558,7 @@ if SERVER
 
     do
 
-        :GetSequenceActivity = ENTITY
+        import GetSequenceActivity from ENTITY
 
         acts = {
             [ ACT_GMOD_TAUNT_DANCE ]: true
@@ -646,13 +615,12 @@ Add "PlayerSwitchWeapon", addonName .. "::WeaponSwitch", ( ply ) ->
 
 do
 
-    :Iterator = player
+    import Iterator from player
 
     players = {}
 
     Add( "EntityRemoved", addonName .. "::PlayerRemoved", ( entity ) ->
         players[ entity ] = nil
-
     PRE_HOOK )
 
     curTime = 0
@@ -661,7 +629,7 @@ do
         curTime = CurTime!
 
         for _, ply in Iterator!
-            if IsDormant( ply )
+            if IsDormant( ply ) or not Alive( ply )
                 if ply.m_bIsPlayingTaunt
                     ply.m_bIsPlayingTaunt = false
 
@@ -691,19 +659,18 @@ do
 
 do
 
-    :SetRenderAngles = PLAYER
+    import SetRenderAngles from PLAYER
 
     Add( "UpdateAnimation", addonName .. "::RenderAngles", ( ply ) ->
         if isPlayingTaunt( ply )
             SetRenderAngles( ply, getRenderAngles( ply ) )
             return
-
     PRE_HOOK )
 
 do
 
-    :ClearMovement, :SetButtons, :SetImpulse, :KeyDown, :RemoveKey = FindMetaTable( "CUserCmd" )
-    IN_ATTACK, IN_ATTACK2, IN_DUCK, IN_JUMP = IN_ATTACK, IN_ATTACK2, IN_DUCK, IN_JUMP
+    import ClearMovement, SetButtons, SetImpulse, KeyDown, RemoveKey from FindMetaTable( "CUserCmd" )
+    import IN_ATTACK, IN_ATTACK2, IN_DUCK, IN_JUMP from _G
     import band from bit
 
     buttons = 0
@@ -738,13 +705,12 @@ do
         SetButtons( cmd, buttons )
         SetImpulse( cmd, 0 )
         return
-
     PRE_HOOK )
 
 unless CLIENT
     return
 
-CreateClientConVar = CreateClientConVar
+import CreateClientConVar from _G
 
 cl_utaunt_loop = CreateClientConVar( "cl_utaunt_loop", "0", true, true, "Enables looping for all taunts.", 0, 1 )
 cl_utaunt_audio = CreateClientConVar( "cl_utaunt_audio", "1", true, true, "Enables audio playback for taunts that support this feature.", 0, 1 )
@@ -765,17 +731,20 @@ lib.GetCameraMode = ->
 
 import GetPhrase from language
 
-getPhrase = ( placeholder ) ->
+getPhrase = lib.GetPhrase = ( placeholder ) ->
     fulltext = GetPhrase( placeholder )
     if fulltext == placeholder and sub( placeholder, 1, 15 ) == "unknown_taunts."
         return GetPhrase( sub( placeholder, 16 ) )
 
     return fulltext
 
-lib.GetPhrase = getPhrase
-
 localPlayer = LocalPlayer!
-isInTaunt = false
+
+local isInTaunt
+if _G.IsInTaunt
+    isInTaunt = _G.IsInTaunt!
+else
+    isInTaunt = false
 
 global IsInTaunt = ->
     return isInTaunt
@@ -785,26 +754,26 @@ Add( "InitPostEntity", addonName .. "::Initialization", ->
     localPlayer.m_bIsLocalPlayer = true
     localPlayer.m_bIsPlayingTaunt = false
     lib.Player = localPlayer
-
 PRE_HOOK )
 
 Add( "Think", addonName .. "::IsInTaunt", ->
     if localPlayer and IsValid( localPlayer )
         isInTaunt = localPlayer.m_bIsPlayingTaunt
-
 PRE_HOOK )
 
 Add "HUDShouldDraw", addonName .. "::WeaponSelector", ( name ) ->
     if isInTaunt and name == "CHudWeaponSelection" and not GetBool( sv_utaunt_allow_weapons )
         return false
 
-:Forward = FindMetaTable( "Angle" )
+import Forward from FindMetaTable( "Angle" )
 boneID = 0
 
 do
 
+    import GetVolume, SetPos from FindMetaTable( "IGModAudioChannel" )
+    import Remove from hook
+
     mins, maxs = Vector( -512, -512, 0 ), Vector( 512, 512, 512 )
-    :GetVolume, :SetPos = FindMetaTable( "IGModAudioChannel" )
 
     stopAudio = ( ply ) ->
         channel = ply.m_bcUnknownTauntAudio
@@ -817,8 +786,6 @@ do
         [ GMOD_CHANNEL_PLAYING ]: true
         [ GMOD_CHANNEL_STALLED ]: true
     }
-
-    import Remove from hook
 
     Add( "UnknownTauntSynced", addonName .. "::Sync", ( ply, sequenceName, cycle, sequenceID, webAudio ) ->
         mins[ 3 ] = ply\GetModelRenderBounds![ 3 ]
@@ -1009,7 +976,7 @@ do
 
     PRE_HOOK )
 
-toggleMenu = ( ply, keyCode ) ->
+toggleMenu = lib.ToggleMenu = ( ply, keyCode ) ->
     if isPlayingCTaunt( ply )
         return false
 
@@ -1030,8 +997,6 @@ toggleMenu = ( ply, keyCode ) ->
     lib.Panel = panel
     panel\Setup( ply )
     return true
-
-lib.ToggleMenu = toggleMenu
 
 concommand.Add "utaunts", ( ply, _, args ) ->
     unless ply\Alive!
@@ -1155,9 +1120,10 @@ do
 
 do
 
-    cl_utaunt_menu_auto_close = CreateClientConVar( "cl_utaunt_menu_auto_close", "0", true, false, "Automatically close the taunt menu when a taunt is selected.", 0, 1 )
     import DrawRect, SetDrawColor from surface
     import floor, Round from math
+
+    cl_utaunt_menu_auto_close = CreateClientConVar( "cl_utaunt_menu_auto_close", "0", true, false, "Automatically close the taunt menu when a taunt is selected.", 0, 1 )
 
     PANEL = {}
 
@@ -1379,7 +1345,7 @@ do
                     label\SetText( str )
 
         Run "UnknownTauntMenuSetup", ply, ( title, sequences ) ->
-            if not istable( sequences )
+            unless istable( sequences )
                 return
 
             length = #sequences
@@ -1442,9 +1408,8 @@ do
 
 do
 
-    HSVToColor = HSVToColor
+    import MsgC, HSVToColor from _G
     import Round from math
-    MsgC = MsgC
 
     concommand.Add "utaunt_list", ( ply, _, args ) ->
         modelSequences = GetSequenceList( ply )
@@ -1493,12 +1458,12 @@ list.Set "DesktopWindows", "utaunt-menu", {
 
 do
 
+    import FrameTime from _G
+
     camera_mode = GetInt( cl_utaunt_camera_mode )
     cvars.AddChangeCallback( cl_utaunt_camera_mode\GetName!, ( _, __, value ) ->
         camera_mode = tonumber( value ) or 0
     addonName )
-
-    FrameTime = FrameTime
 
     local viewAngles, eyeAngles, distance
 
@@ -1514,15 +1479,13 @@ do
 
     do
 
-        cl_utaunt_camera_distance = CreateClientConVar( "cl_utaunt_camera_distance", "128", true, false, "Distance of the camera from the player." )
-        :LookupAttachment, :GetAttachment = ENTITY
-        vector_origin = vector_origin
-        LocalToWorld = LocalToWorld
-        :GetViewEntity = PLAYER
-        LerpVector = LerpVector
-        LerpAngle = LerpAngle
+        import vector_origin, LocalToWorld, LerpVector, LerpAngle from _G
+        import LookupAttachment, GetAttachment from ENTITY
+        import GetViewEntity from PLAYER
 
-        targetOrigin, targetAngles = nil, nil
+        cl_utaunt_camera_distance = CreateClientConVar( "cl_utaunt_camera_distance", "128", true, false, "Distance of the camera from the player." )
+
+        local targetOrigin, targetAngles
         attachmentID, fraction = 0, 0
         view = { drawviewer: true }
 
@@ -1607,7 +1570,7 @@ do
 
     do
 
-        :SetViewAngles, :GetMouseWheel = FindMetaTable( "CUserCmd" )
+        import SetViewAngles, GetMouseWheel from FindMetaTable( "CUserCmd" )
         import TraceHull from util
         wheel = 0
 
